@@ -10,8 +10,8 @@ app.setName('LiveMark');
 // Set About panel options
 app.setAboutPanelOptions({
   applicationName: 'LiveMark',
-  applicationVersion: '1.1.0',
-  version: '1.1.0',
+  applicationVersion: '1.2.1',
+  version: '1.2.1',
   copyright: 'Live-updating Markdown viewer for macOS',
 });
 

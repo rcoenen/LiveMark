@@ -1,6 +1,6 @@
 {
   "name": "livemark",
-  "version": "1.1.0",
+  "version": "1.2.1",
   "description": "Live-updating Markdown viewer for macOS",
   "main": "dist/main/main.js",
   "scripts": {
@@ -14,6 +14,7 @@
   "license": "MIT",
   "devDependencies": {
     "@types/node": "^20.10.0",
+    "@types/turndown": "^5.0.6",
     "electron": "^28.0.0",
     "electron-builder": "^24.9.1",
     "esbuild": "^0.27.0",
@@ -22,7 +23,8 @@
   "dependencies": {
     "chokidar": "^3.5.3",
     "highlight.js": "^11.9.0",
-    "markdown-it": "^14.0.0"
+    "markdown-it": "^14.0.0",
+    "turndown": "^7.2.2"
   },
   "build": {
     "appId": "com.livemark.app",
@@ -34,12 +36,17 @@
       {
         "from": "resources/bin",
         "to": "bin",
-        "filter": ["**/*"]
+        "filter": [
+          "**/*"
+        ]
       }
     ],
     "fileAssociations": [
       {
-        "ext": ["md", "markdown"],
+        "ext": [
+          "md",
+          "markdown"
+        ],
         "name": "Markdown Document",
         "role": "Viewer",
         "mimeType": "text/markdown"
@@ -65,7 +72,9 @@
       "node_modules/binary-extensions/**/*",
       "node_modules/normalize-path/**/*",
       "node_modules/readdirp/**/*",
-      "node_modules/picomatch/**/*"
+      "node_modules/picomatch/**/*",
+      "node_modules/turndown/**/*",
+      "node_modules/domino/**/*"
     ]
   }
 }

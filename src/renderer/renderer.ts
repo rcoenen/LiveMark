@@ -1,5 +1,8 @@
 import markdownit from 'markdown-it';
 import hljs from 'highlight.js';
+import TurndownService from 'turndown';
+
+const turndown = new TurndownService({ headingStyle: 'atx', codeBlockStyle: 'fenced' });
 
 // Initialize markdown-it with syntax highlighting
 const md = markdownit({
@@ -30,6 +33,18 @@ function formatDate(date: Date): string {
   return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
 }
 
+const THEME_KEY = 'livemark-theme';
+
+function applyTheme(dark: boolean): void {
+  document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+}
+
+// Initialize theme from localStorage before DOM is ready to avoid flash
+(function initTheme(): void {
+  const stored = localStorage.getItem(THEME_KEY);
+  applyTheme(stored === 'dark');
+})();
+
 document.addEventListener('DOMContentLoaded', () => {
   // DOM elements
   const contentEl = document.getElementById('content') as HTMLElement;
@@ -40,6 +55,16 @@ document.addEventListener('DOMContentLoaded', () => {
   const notificationEl = document.getElementById('update-notification') as HTMLElement;
   const updateCountEl = document.getElementById('update-count') as HTMLElement;
   const screenFlashEl = document.getElementById('screen-flash') as HTMLElement;
+  const themeToggleInput = document.getElementById('theme-toggle-input') as HTMLInputElement;
+
+  // Sync toggle state with current theme
+  themeToggleInput.checked = localStorage.getItem(THEME_KEY) === 'dark';
+
+  themeToggleInput.addEventListener('change', () => {
+    const dark = themeToggleInput.checked;
+    applyTheme(dark);
+    localStorage.setItem(THEME_KEY, dark ? 'dark' : 'light');
+  });
 
   let isFirstLoad = true;
   let updateCount = 0;
@@ -77,20 +102,32 @@ document.addEventListener('DOMContentLoaded', () => {
     isFirstLoad = false;
   });
 
-  // Override copy to always copy raw markdown
+  // Override copy: selection → convert selected HTML to markdown; no selection → full source
   document.addEventListener('copy', (e) => {
-    if (rawMarkdown) {
-      e.preventDefault();
-      e.clipboardData?.setData('text/plain', rawMarkdown);
+    if (!rawMarkdown) return;
+    e.preventDefault();
 
-      // Show brief notification
-      notificationEl.textContent = 'Copied as Markdown';
-      notificationEl.classList.add('show');
-      setTimeout(() => {
-        notificationEl.classList.remove('show');
-        notificationEl.textContent = 'Updated';
-      }, 1000);
+    const selection = window.getSelection();
+    let textToCopy = rawMarkdown;
+
+    if (selection && !selection.isCollapsed) {
+      const range = selection.getRangeAt(0);
+      if (contentEl.contains(range.commonAncestorContainer)) {
+        const fragment = range.cloneContents();
+        const tmp = document.createElement('div');
+        tmp.appendChild(fragment);
+        textToCopy = turndown.turndown(tmp.innerHTML);
+      }
     }
+
+    e.clipboardData?.setData('text/plain', textToCopy);
+
+    notificationEl.textContent = 'Copied as Markdown';
+    notificationEl.classList.add('show');
+    setTimeout(() => {
+      notificationEl.classList.remove('show');
+      notificationEl.textContent = 'Updated';
+    }, 1000);
   });
 
   // Listen for file info updates

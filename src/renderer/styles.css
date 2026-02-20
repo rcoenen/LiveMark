@@ -9,16 +9,14 @@
   --header-bg: #fafbfc;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg-color: #0d1117;
-    --text-color: #c9d1d9;
-    --text-secondary: #8b949e;
-    --border-color: #30363d;
-    --code-bg: #161b22;
-    --link-color: #58a6ff;
-    --header-bg: #161b22;
-  }
+html[data-theme="dark"] {
+  --bg-color: #0d1117;
+  --text-color: #c9d1d9;
+  --text-secondary: #8b949e;
+  --border-color: #30363d;
+  --code-bg: #161b22;
+  --link-color: #58a6ff;
+  --header-bg: #161b22;
 }
 
 * {
@@ -336,29 +334,84 @@ body {
   color: #005cc5;
 }
 
-@media (prefers-color-scheme: dark) {
-  .hljs-keyword,
-  .hljs-selector-tag {
-    color: #ff7b72;
-  }
+html[data-theme="dark"] .hljs-keyword,
+html[data-theme="dark"] .hljs-selector-tag {
+  color: #ff7b72;
+}
 
-  .hljs-string,
-  .hljs-attr {
-    color: #a5d6ff;
-  }
+html[data-theme="dark"] .hljs-string,
+html[data-theme="dark"] .hljs-attr {
+  color: #a5d6ff;
+}
 
-  .hljs-number,
-  .hljs-literal {
-    color: #79c0ff;
-  }
+html[data-theme="dark"] .hljs-number,
+html[data-theme="dark"] .hljs-literal {
+  color: #79c0ff;
+}
 
-  .hljs-title,
-  .hljs-section {
-    color: #d2a8ff;
-  }
+html[data-theme="dark"] .hljs-title,
+html[data-theme="dark"] .hljs-section {
+  color: #d2a8ff;
+}
 
-  .hljs-built_in,
-  .hljs-builtin-name {
-    color: #79c0ff;
-  }
+html[data-theme="dark"] .hljs-built_in,
+html[data-theme="dark"] .hljs-builtin-name {
+  color: #79c0ff;
+}
+
+/* Theme toggle switch */
+.theme-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.theme-toggle-label {
+  font-size: 11px;
+  color: var(--text-secondary);
+  user-select: none;
+}
+
+.theme-toggle-switch {
+  position: relative;
+  width: 32px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+.theme-toggle-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+  position: absolute;
+}
+
+.theme-toggle-track {
+  position: absolute;
+  inset: 0;
+  background-color: var(--border-color);
+  border-radius: 9px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.theme-toggle-track::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background-color: var(--bg-color);
+  transition: transform 0.2s;
+}
+
+.theme-toggle-switch input:checked + .theme-toggle-track {
+  background-color: var(--link-color);
+}
+
+.theme-toggle-switch input:checked + .theme-toggle-track::after {
+  transform: translateX(14px);
 }
