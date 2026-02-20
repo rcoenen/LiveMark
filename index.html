@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'">
+  <title>LiveMark</title>
+  <link rel="stylesheet" href="dist/renderer/styles.css">
+</head>
+<body>
+  <div id="screen-flash" class="screen-flash"></div>
+  <div class="container">
+    <div id="update-notification" class="update-notification">Updated</div>
+    <header class="metadata">
+      <span id="file-path" class="file-path"></span>
+      <span class="metadata-right">
+        <span id="update-count" class="update-count"></span>
+        <span id="last-updated" class="last-updated"></span>
+      </span>
+    </header>
+
+    <main id="content" class="content" style="display: none;"></main>
+
+    <div id="empty-state" class="empty-state">
+      <h1>LiveMark</h1>
+      <p>Open a Markdown file to get started</p>
+      <button id="open-file-btn" class="open-file-btn">Open File...</button>
+      <p class="hint">Or drag and drop a file, or pass a file path as argument</p>
+    </div>
+  </div>
+
+  <script src="dist/renderer/renderer.js"></script>
+</body>
+</html>
