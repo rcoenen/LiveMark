@@ -186,10 +186,20 @@ function watchFile(filePath: string): void {
     fileWatcher.close();
   }
 
+  const send = (channel: string, payload: unknown) => {
+    if (!mainWindow) return;
+    const wc = mainWindow.webContents;
+    if (wc.isLoading()) {
+      wc.once('did-finish-load', () => wc.send(channel, payload));
+    } else {
+      wc.send(channel, payload);
+    }
+  };
+
   fileWatcher = new FileWatcher(filePath, (content, info) => {
     if (mainWindow) {
-      mainWindow.webContents.send('markdown-update', content);
-      mainWindow.webContents.send('file-info', info);
+      send('markdown-update', content);
+      send('file-info', info);
       mainWindow.setTitle(`LiveMark - ${path.basename(filePath)}`);
     }
   });
