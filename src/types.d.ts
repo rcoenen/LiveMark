@@ -1,4 +1,16 @@
 declare module 'markdown-it' {
+  interface Token {
+    attrGet(name: string): string | null;
+    attrSet(name: string, value: string): void;
+  }
+
+  interface Renderer {
+    rules: Record<string, RuleFn>;
+    renderToken: (tokens: Token[], idx: number, options: MarkdownItOptions) => string;
+  }
+
+  type RuleFn = (tokens: Token[], idx: number, options: MarkdownItOptions, env: unknown, self: Renderer) => string;
+
   interface MarkdownItOptions {
     html?: boolean;
     xhtmlOut?: boolean;
@@ -10,7 +22,8 @@ declare module 'markdown-it' {
   }
 
   interface MarkdownIt {
-    render(md: string): string;
+    render(md: string, env?: unknown): string;
+    renderer: Renderer;
   }
 
   function markdownit(options?: MarkdownItOptions): MarkdownIt;

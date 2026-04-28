@@ -69,6 +69,26 @@ document.addEventListener('DOMContentLoaded', () => {
   let isFirstLoad = true;
   let updateCount = 0;
   let rawMarkdown = '';
+  let fileDir = '';
+
+  function dirname(p: string): string {
+    const cleaned = p.replace(/\\/g, '/');
+    const lastSlash = cleaned.lastIndexOf('/');
+    return lastSlash >= 0 ? cleaned.substring(0, lastSlash) : '.';
+  }
+
+  // Resolve local image paths to file:// URLs
+  const defaultImageRenderer = md.renderer.rules.image || ((tokens, idx, options, _, self) => self.renderToken(tokens, idx, options));
+  md.renderer.rules.image = (tokens, idx, options, env, self) => {
+    const token = tokens[idx];
+    const src = token.attrGet('src');
+    if (src && !/^(https?:\/\/|data:|file:\/\/)/i.test(src) && fileDir) {
+      const cleaned = src.replace(/\\/g, '/');
+      const resolved = cleaned.startsWith('/') ? 'file://' + cleaned : 'file://' + fileDir + '/' + cleaned;
+      token.attrSet('src', resolved);
+    }
+    return defaultImageRenderer(tokens, idx, options, env, self);
+  };
 
   // Show update notification and screen flash briefly
   function showNotification(): void {
@@ -133,6 +153,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Listen for file info updates
   window.livemark.onFileInfo((info) => {
     filePathEl.textContent = info.path;
+    fileDir = dirname(info.path);
     lastUpdatedEl.textContent = `Last updated: ${formatDate(info.lastModified)}`;
   });
 
