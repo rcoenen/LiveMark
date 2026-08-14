@@ -5,6 +5,11 @@ on:
     branches:
       - main
   workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Existing tag to build and publish, such as v1.3.0
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -13,7 +18,11 @@ permissions:
 
 jobs:
   release-please:
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
+    outputs:
+      release_created: ${{ steps.release.outputs.release_created }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
     steps:
       - name: Create or update release pull request
         id: release
@@ -22,3 +31,67 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
+
+  build-release:
+    needs: release-please
+    if: ${{ always() && (github.event_name == 'workflow_dispatch' || needs.release-please.outputs.release_created == 'true') }}
+    runs-on: macos-14
+    env:
+      RELEASE_TAG: ${{ github.event.inputs.release_tag || needs.release-please.outputs.tag_name }}
+    steps:
+      - name: Check out release tag
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_TAG }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build application
+        run: npm run build
+
+      - name: Package Apple silicon release
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+        run: npx electron-builder --mac --arm64 --publish never
+
+      - name: Verify DMG
+        run: hdiutil verify dist/LiveMark-*-arm64.dmg
+
+      - name: Generate checksums
+        working-directory: dist
+        run: shasum -a 256 LiveMark-*-arm64.dmg LiveMark-*-arm64-mac.zip > SHA256SUMS.txt
+
+      - name: Create GitHub Release if needed
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if ! gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh release create "$RELEASE_TAG" --verify-tag --title "LiveMark ${RELEASE_TAG#v}" --generate-notes
+          fi
+
+      - name: Upload release files
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload "$RELEASE_TAG" \
+            dist/LiveMark-*-arm64.dmg \
+            dist/LiveMark-*-arm64-mac.zip \
+            dist/SHA256SUMS.txt \
+            --clobber
+
+      - name: Preserve workflow artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: LiveMark-${{ env.RELEASE_TAG }}-arm64
+          path: |
+            dist/LiveMark-*-arm64.dmg
+            dist/LiveMark-*-arm64-mac.zip
+            dist/SHA256SUMS.txt
+          if-no-files-found: error

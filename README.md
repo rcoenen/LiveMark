@@ -4,6 +4,13 @@
   <p>Keep an eye on what your coding agent is doing to your Markdown files.</p>
 </div>
 
+<p align="center">
+  <a href="https://github.com/rcoenen/LiveMark/releases/latest"><img alt="Download the DMG" src="https://img.shields.io/github/v/release/rcoenen/LiveMark?sort=semver&amp;display_name=tag&amp;style=for-the-badge&amp;label=download%20the%20dmg&amp;color=7C3AED"></a>
+  <a href="https://github.com/rcoenen/LiveMark/releases"><img alt="Downloads" src="https://img.shields.io/github/downloads/rcoenen/LiveMark/total?style=for-the-badge&amp;label=downloads&amp;color=2C7BE5"></a>
+  <a href="https://github.com/rcoenen/LiveMark/actions/workflows/ci.yml"><img alt="Build" src="https://img.shields.io/github/actions/workflow/status/rcoenen/LiveMark/ci.yml?branch=main&amp;style=for-the-badge&amp;label=build"></a>
+  <a href="LICENSE"><img alt="License" src="https://img.shields.io/github/license/rcoenen/LiveMark?style=for-the-badge&amp;label=license"></a>
+</p>
+
 LiveMark renders local Markdown files and refreshes the preview whenever they change on disk. Open several documents in tabs and keep their previews running side by side.
 
 ## Why LiveMark?
