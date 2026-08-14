@@ -17,9 +17,15 @@ LiveMark renders local Markdown files and refreshes the preview whenever they ch
 
 1. **[Download the latest DMG](https://github.com/rcoenen/LiveMark/releases/latest).**
 2. Open it and drag LiveMark into Applications.
-3. Launch LiveMark and open a Markdown file.
+3. Try to open LiveMark once. macOS will block the first launch because the app
+   is not notarized.
+4. Open **System Settings → Privacy & Security**, scroll to **Security**, and
+   click **Open Anyway** next to LiveMark.
+5. Confirm **Open**, then open a Markdown file.
 
-> LiveMark is currently unsigned. If macOS blocks the first launch, Control-click LiveMark in Applications, choose **Open**, then confirm **Open**.
+> LiveMark is ad-hoc signed but not Apple-notarized. The one-time **Open Anyway**
+> step is required because notarization requires a paid Apple Developer account.
+> Apple has enough money already; we're not paying them to remove one click.
 
 ## Why LiveMark?
 

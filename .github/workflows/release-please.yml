@@ -59,7 +59,17 @@ jobs:
       - name: Package Apple silicon release
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
-        run: npx electron-builder --mac --arm64 --publish never
+        # Keep these overrides and explicit signing commands here so rebuilding
+        # a tag created before ad-hoc signing was configured is also safe.
+        run: |
+          npx electron-builder --mac --arm64 --dir --publish never -c.mac.identity=null -c.mac.hardenedRuntime=false
+          codesign --force --deep --sign - dist/mac-arm64/LiveMark.app
+          npx electron-builder --mac --arm64 --prepackaged dist/mac-arm64 --publish never
+
+      - name: Verify application signature
+        run: |
+          codesign --verify --deep --strict --verbose=2 dist/mac-arm64/LiveMark.app
+          codesign --display --verbose=4 dist/mac-arm64/LiveMark.app 2>&1 | grep -q "Signature=adhoc"
 
       - name: Verify DMG
         run: hdiutil verify dist/LiveMark-*-arm64.dmg

@@ -8,7 +8,7 @@
     "start": "npm run build && electron .",
     "dev": "npm run build && electron .",
     "watch": "tsc -w",
-    "dist": "npm run build && electron-builder"
+    "dist": "npm run build && electron-builder --mac --arm64 --dir --publish never && codesign --force --deep --sign - dist/mac-arm64/LiveMark.app && codesign --verify --deep --strict --verbose=2 dist/mac-arm64/LiveMark.app && electron-builder --mac --arm64 --prepackaged dist/mac-arm64 --publish never"
   },
   "author": "",
   "license": "MIT",
@@ -30,7 +30,9 @@
     "appId": "com.livemark.app",
     "productName": "LiveMark",
     "mac": {
-      "category": "public.app-category.developer-tools"
+      "category": "public.app-category.developer-tools",
+      "identity": null,
+      "hardenedRuntime": false
     },
     "extraResources": [
       {
