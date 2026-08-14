@@ -11,28 +11,34 @@
   <div id="screen-flash" class="screen-flash"></div>
   <div class="container">
     <div id="update-notification" class="update-notification">Updated</div>
-    <header class="metadata">
+    <header class="app-toolbar">
+      <span class="app-title">LiveMark</span>
+      <label class="theme-toggle" title="Toggle light/dark mode">
+        <span class="theme-toggle-label">Dark</span>
+        <span class="theme-toggle-switch">
+          <input type="checkbox" id="theme-toggle-input">
+          <span class="theme-toggle-track"></span>
+        </span>
+      </label>
+    </header>
+    <div id="document-tabs-wrapper" class="document-tabs-wrapper" hidden>
+      <div id="document-tabs" class="document-tabs" role="tablist" aria-label="Open documents"></div>
+    </div>
+    <header id="document-metadata" class="metadata" hidden>
       <span id="file-path" class="file-path"></span>
       <span class="metadata-right">
         <span id="update-count" class="update-count"></span>
         <span id="last-updated" class="last-updated"></span>
-        <label class="theme-toggle" title="Toggle light/dark mode">
-          <span class="theme-toggle-label">Dark</span>
-          <span class="theme-toggle-switch">
-            <input type="checkbox" id="theme-toggle-input">
-            <span class="theme-toggle-track"></span>
-          </span>
-        </label>
       </span>
     </header>
 
-    <main id="content" class="content" style="display: none;"></main>
+    <main id="content" class="content" role="tabpanel" tabindex="0" style="display: none;"></main>
 
     <div id="empty-state" class="empty-state">
       <h1>LiveMark</h1>
       <p>Open a Markdown file to get started</p>
       <button id="open-file-btn" class="open-file-btn">Open File...</button>
-      <p class="hint">Or drag and drop a file, or pass a file path as argument</p>
+      <p class="hint">Or drag and drop files, or pass file paths as arguments</p>
     </div>
   </div>
 

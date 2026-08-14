@@ -32,9 +32,17 @@ declare module 'markdown-it' {
 
 interface Window {
   livemark: {
-    onMarkdownUpdate: (callback: (content: string) => void) => void;
-    onFileInfo: (callback: (info: { path: string; lastModified: Date }) => void) => void;
+    onDocumentUpdate: (callback: (document: {
+      id: string;
+      path: string;
+      content: string;
+      lastModified: number;
+    }) => void) => void;
+    onDocumentActivated: (callback: (payload: { id: string }) => void) => void;
+    onDocumentClosed: (callback: (payload: { id: string }) => void) => void;
     openFile: () => void;
-    openFilePath: (filePath: string) => void;
+    openFilePaths: (filePaths: string[]) => void;
+    activateDocument: (documentId: string) => void;
+    closeDocument: (documentId: string) => void;
   };
 }

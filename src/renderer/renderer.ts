@@ -2,9 +2,20 @@ import markdownit from 'markdown-it';
 import hljs from 'highlight.js';
 import TurndownService from 'turndown';
 
+interface DocumentSnapshot {
+  id: string;
+  path: string;
+  content: string;
+  lastModified: number;
+}
+
+interface OpenDocument extends DocumentSnapshot {
+  updateCount: number;
+  scrollTop: number;
+}
+
 const turndown = new TurndownService({ headingStyle: 'atx', codeBlockStyle: 'fenced' });
 
-// Initialize markdown-it with syntax highlighting
 const md = markdownit({
   html: true,
   linkify: true,
@@ -17,12 +28,11 @@ const md = markdownit({
         // Fall through to default
       }
     }
-    return ''; // Use external default escaping
+    return '';
   },
 });
 
-// Format date for display (24-hour military time)
-function formatDate(date: Date): string {
+function formatDate(date: number): string {
   const d = new Date(date);
   const year = d.getFullYear();
   const month = String(d.getMonth() + 1).padStart(2, '0');
@@ -33,157 +43,336 @@ function formatDate(date: Date): string {
   return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
 }
 
+function dirname(filePath: string): string {
+  const cleaned = filePath.replace(/\\/g, '/');
+  const lastSlash = cleaned.lastIndexOf('/');
+  return lastSlash >= 0 ? cleaned.substring(0, lastSlash) : '.';
+}
+
+function basename(filePath: string): string {
+  const cleaned = filePath.replace(/\\/g, '/');
+  const lastSlash = cleaned.lastIndexOf('/');
+  return lastSlash >= 0 ? cleaned.substring(lastSlash + 1) : cleaned;
+}
+
 const THEME_KEY = 'livemark-theme';
 
 function applyTheme(dark: boolean): void {
   document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
 }
 
-// Initialize theme from localStorage before DOM is ready to avoid flash
 (function initTheme(): void {
   const stored = localStorage.getItem(THEME_KEY);
   applyTheme(stored === 'dark');
 })();
 
 document.addEventListener('DOMContentLoaded', () => {
-  // DOM elements
   const contentEl = document.getElementById('content') as HTMLElement;
   const filePathEl = document.getElementById('file-path') as HTMLElement;
   const lastUpdatedEl = document.getElementById('last-updated') as HTMLElement;
+  const metadataEl = document.getElementById('document-metadata') as HTMLElement;
   const emptyStateEl = document.getElementById('empty-state') as HTMLElement;
   const openFileBtn = document.getElementById('open-file-btn') as HTMLButtonElement;
   const notificationEl = document.getElementById('update-notification') as HTMLElement;
   const updateCountEl = document.getElementById('update-count') as HTMLElement;
   const screenFlashEl = document.getElementById('screen-flash') as HTMLElement;
   const themeToggleInput = document.getElementById('theme-toggle-input') as HTMLInputElement;
+  const tabsWrapperEl = document.getElementById('document-tabs-wrapper') as HTMLElement;
+  const tabsEl = document.getElementById('document-tabs') as HTMLElement;
 
-  // Sync toggle state with current theme
+  const documents = new Map<string, OpenDocument>();
+  let activeDocumentId: string | null = null;
+  let activeFileDir = '';
+  let notificationTimer: number | null = null;
+  let flashTimer: number | null = null;
+
   themeToggleInput.checked = localStorage.getItem(THEME_KEY) === 'dark';
-
   themeToggleInput.addEventListener('change', () => {
     const dark = themeToggleInput.checked;
     applyTheme(dark);
     localStorage.setItem(THEME_KEY, dark ? 'dark' : 'light');
   });
 
-  let isFirstLoad = true;
-  let updateCount = 0;
-  let rawMarkdown = '';
-  let fileDir = '';
-
-  function dirname(p: string): string {
-    const cleaned = p.replace(/\\/g, '/');
-    const lastSlash = cleaned.lastIndexOf('/');
-    return lastSlash >= 0 ? cleaned.substring(0, lastSlash) : '.';
-  }
-
-  // Resolve local image paths to file:// URLs
   const defaultImageRenderer = md.renderer.rules.image || ((tokens, idx, options, _, self) => self.renderToken(tokens, idx, options));
   md.renderer.rules.image = (tokens, idx, options, env, self) => {
     const token = tokens[idx];
     const src = token.attrGet('src');
-    if (src && !/^(https?:\/\/|data:|file:\/\/)/i.test(src) && fileDir) {
+    if (src && !/^(https?:\/\/|data:|file:\/\/)/i.test(src) && activeFileDir) {
       const cleaned = src.replace(/\\/g, '/');
-      const resolved = cleaned.startsWith('/') ? 'file://' + cleaned : 'file://' + fileDir + '/' + cleaned;
+      const resolved = cleaned.startsWith('/') ? `file://${cleaned}` : `file://${activeFileDir}/${cleaned}`;
       token.attrSet('src', resolved);
     }
     return defaultImageRenderer(tokens, idx, options, env, self);
   };
 
-  // Show update notification and screen flash briefly
-  function showNotification(): void {
-    // Flash the screen
-    screenFlashEl.classList.add('flash');
-    setTimeout(() => {
-      screenFlashEl.classList.remove('flash');
-    }, 150);
-
-    // Show notification badge
+  function showNotification(message: string, duration: number, flash: boolean): void {
+    if (notificationTimer !== null) {
+      window.clearTimeout(notificationTimer);
+    }
+    notificationEl.textContent = message;
     notificationEl.classList.add('show');
-    setTimeout(() => {
+    notificationTimer = window.setTimeout(() => {
       notificationEl.classList.remove('show');
-    }, 1500);
+      notificationEl.textContent = 'Updated';
+      notificationTimer = null;
+    }, duration);
+
+    if (!flash) return;
+    if (flashTimer !== null) {
+      window.clearTimeout(flashTimer);
+    }
+    screenFlashEl.classList.add('flash');
+    flashTimer = window.setTimeout(() => {
+      screenFlashEl.classList.remove('flash');
+      flashTimer = null;
+    }, 150);
   }
 
-  // Listen for markdown updates
-  window.livemark.onMarkdownUpdate((content: string) => {
-    rawMarkdown = content;
-    const html = md.render(content);
-    contentEl.innerHTML = html;
-    emptyStateEl.style.display = 'none';
-    contentEl.style.display = 'block';
-
-    // Show notification on updates (not first load)
-    if (!isFirstLoad) {
-      updateCount++;
-      updateCountEl.textContent = `Updates: ${updateCount}`;
-      showNotification();
+  function saveActiveScrollPosition(): void {
+    if (!activeDocumentId) return;
+    const activeDocument = documents.get(activeDocumentId);
+    if (activeDocument) {
+      activeDocument.scrollTop = window.scrollY;
     }
-    isFirstLoad = false;
+  }
+
+  function focusTab(documentId: string): void {
+    const tab = Array.from(tabsEl.querySelectorAll<HTMLButtonElement>('[role="tab"]'))
+      .find((candidate) => candidate.dataset.documentId === documentId);
+    tab?.focus();
+  }
+
+  function requestDocumentActivation(documentId: string, moveFocus = false): void {
+    if (!documents.has(documentId)) return;
+    activateDocument(documentId);
+    window.livemark.activateDocument(documentId);
+    if (moveFocus) {
+      focusTab(documentId);
+    }
+  }
+
+  function renderTabs(): void {
+    tabsEl.replaceChildren();
+    tabsWrapperEl.hidden = documents.size === 0;
+    document.body.classList.toggle('has-documents', documents.size > 0);
+
+    let index = 0;
+    for (const documentState of documents.values()) {
+      const isActive = documentState.id === activeDocumentId;
+      const name = basename(documentState.path);
+      const tabItem = document.createElement('div');
+      tabItem.className = `document-tab${isActive ? ' is-active' : ''}`;
+
+      const tabButton = document.createElement('button');
+      tabButton.type = 'button';
+      tabButton.id = `document-tab-${index}`;
+      tabButton.className = 'document-tab__button';
+      tabButton.dataset.documentId = documentState.id;
+      tabButton.setAttribute('role', 'tab');
+      tabButton.setAttribute('aria-controls', 'content');
+      tabButton.setAttribute('aria-selected', String(isActive));
+      tabButton.tabIndex = isActive ? 0 : -1;
+      tabButton.title = documentState.path;
+      tabButton.setAttribute(
+        'aria-label',
+        documentState.updateCount > 0 ? `${name}, ${documentState.updateCount} updates` : name
+      );
+      tabButton.addEventListener('click', () => requestDocumentActivation(documentState.id));
+
+      const label = document.createElement('span');
+      label.className = 'document-tab__label';
+      label.textContent = name;
+      tabButton.appendChild(label);
+
+      if (documentState.updateCount > 0) {
+        const count = document.createElement('span');
+        count.className = 'document-tab__count';
+        count.textContent = String(documentState.updateCount);
+        count.setAttribute('aria-hidden', 'true');
+        tabButton.appendChild(count);
+      }
+
+      const closeButton = document.createElement('button');
+      closeButton.type = 'button';
+      closeButton.className = 'document-tab__close';
+      closeButton.textContent = '×';
+      closeButton.title = `Close ${name}`;
+      closeButton.setAttribute('aria-label', `Close ${name}`);
+      closeButton.addEventListener('click', () => window.livemark.closeDocument(documentState.id));
+
+      tabItem.append(tabButton, closeButton);
+      tabsEl.appendChild(tabItem);
+      index++;
+    }
+  }
+
+  function showEmptyState(): void {
+    activeFileDir = '';
+    contentEl.innerHTML = '';
+    contentEl.style.display = 'none';
+    contentEl.removeAttribute('aria-labelledby');
+    emptyStateEl.style.display = 'block';
+    filePathEl.textContent = '';
+    lastUpdatedEl.textContent = '';
+    updateCountEl.textContent = '';
+    metadataEl.hidden = true;
+    window.scrollTo(0, 0);
+  }
+
+  function renderActiveDocument(): void {
+    if (!activeDocumentId) {
+      showEmptyState();
+      return;
+    }
+
+    const activeDocument = documents.get(activeDocumentId);
+    if (!activeDocument) {
+      activeDocumentId = null;
+      showEmptyState();
+      return;
+    }
+
+    activeFileDir = dirname(activeDocument.path);
+    metadataEl.hidden = false;
+    contentEl.innerHTML = md.render(activeDocument.content);
+    contentEl.style.display = 'block';
+    contentEl.setAttribute('aria-labelledby', `document-tab-${Array.from(documents.keys()).indexOf(activeDocument.id)}`);
+    emptyStateEl.style.display = 'none';
+    filePathEl.textContent = activeDocument.path;
+    lastUpdatedEl.textContent = `Last updated: ${formatDate(activeDocument.lastModified)}`;
+    updateCountEl.textContent = activeDocument.updateCount > 0 ? `Updates: ${activeDocument.updateCount}` : '';
+
+    window.requestAnimationFrame(() => {
+      window.scrollTo(0, activeDocument.scrollTop);
+    });
+  }
+
+  function activateDocument(documentId: string): void {
+    if (!documents.has(documentId)) return;
+    if (activeDocumentId !== documentId) {
+      saveActiveScrollPosition();
+      activeDocumentId = documentId;
+    }
+    renderTabs();
+    renderActiveDocument();
+  }
+
+  tabsEl.addEventListener('keydown', (event) => {
+    const target = (event.target as HTMLElement).closest('[role="tab"]') as HTMLButtonElement | null;
+    if (!target) return;
+
+    const documentIds = Array.from(documents.keys());
+    const currentIndex = documentIds.indexOf(target.dataset.documentId ?? '');
+    if (currentIndex < 0) return;
+
+    let nextIndex: number | null = null;
+    if (event.key === 'ArrowRight') {
+      nextIndex = (currentIndex + 1) % documentIds.length;
+    } else if (event.key === 'ArrowLeft') {
+      nextIndex = (currentIndex - 1 + documentIds.length) % documentIds.length;
+    } else if (event.key === 'Home') {
+      nextIndex = 0;
+    } else if (event.key === 'End') {
+      nextIndex = documentIds.length - 1;
+    }
+
+    if (nextIndex !== null) {
+      event.preventDefault();
+      requestDocumentActivation(documentIds[nextIndex], true);
+    }
   });
 
-  // Override copy: selection → convert selected HTML to markdown; no selection → full source
-  document.addEventListener('copy', (e) => {
-    if (!rawMarkdown) return;
-    e.preventDefault();
+  window.livemark.onDocumentUpdate((snapshot: DocumentSnapshot) => {
+    const existingDocument = documents.get(snapshot.id);
+    if (existingDocument) {
+      if (snapshot.id === activeDocumentId) {
+        existingDocument.scrollTop = window.scrollY;
+      }
+      existingDocument.path = snapshot.path;
+      existingDocument.content = snapshot.content;
+      existingDocument.lastModified = snapshot.lastModified;
+      existingDocument.updateCount++;
+      renderTabs();
+
+      if (snapshot.id === activeDocumentId) {
+        renderActiveDocument();
+        showNotification('Updated', 1500, true);
+      }
+      return;
+    }
+
+    documents.set(snapshot.id, {
+      ...snapshot,
+      updateCount: 0,
+      scrollTop: 0,
+    });
+    renderTabs();
+  });
+
+  window.livemark.onDocumentActivated(({ id }) => {
+    activateDocument(id);
+  });
+
+  window.livemark.onDocumentClosed(({ id }) => {
+    const documentIds = Array.from(documents.keys());
+    const closingIndex = documentIds.indexOf(id);
+    const wasActive = activeDocumentId === id;
+    documents.delete(id);
+
+    if (wasActive) {
+      const remainingIds = Array.from(documents.keys());
+      activeDocumentId = remainingIds[Math.min(closingIndex, remainingIds.length - 1)] ?? null;
+    }
+
+    renderTabs();
+    renderActiveDocument();
+    if (activeDocumentId) {
+      window.requestAnimationFrame(() => focusTab(activeDocumentId as string));
+    }
+  });
+
+  document.addEventListener('copy', (event) => {
+    if (!activeDocumentId) return;
+    const activeDocument = documents.get(activeDocumentId);
+    if (!activeDocument?.content) return;
+    event.preventDefault();
 
     const selection = window.getSelection();
-    let textToCopy = rawMarkdown;
+    let textToCopy = activeDocument.content;
 
     if (selection && !selection.isCollapsed) {
       const range = selection.getRangeAt(0);
       if (contentEl.contains(range.commonAncestorContainer)) {
         const fragment = range.cloneContents();
-        const tmp = document.createElement('div');
-        tmp.appendChild(fragment);
-        textToCopy = turndown.turndown(tmp.innerHTML);
+        const temporaryContainer = document.createElement('div');
+        temporaryContainer.appendChild(fragment);
+        textToCopy = turndown.turndown(temporaryContainer.innerHTML);
       }
     }
 
-    e.clipboardData?.setData('text/plain', textToCopy);
-
-    notificationEl.textContent = 'Copied as Markdown';
-    notificationEl.classList.add('show');
-    setTimeout(() => {
-      notificationEl.classList.remove('show');
-      notificationEl.textContent = 'Updated';
-    }, 1000);
+    event.clipboardData?.setData('text/plain', textToCopy);
+    showNotification('Markdown copied to clipboard', 1000, false);
   });
 
-  // Listen for file info updates
-  window.livemark.onFileInfo((info) => {
-    filePathEl.textContent = info.path;
-    fileDir = dirname(info.path);
-    lastUpdatedEl.textContent = `Last updated: ${formatDate(info.lastModified)}`;
+  openFileBtn.addEventListener('click', () => {
+    window.livemark.openFile();
   });
 
-  // Handle open file button click
-  if (openFileBtn) {
-    openFileBtn.addEventListener('click', () => {
-      console.log('Open file button clicked');
-      window.livemark.openFile();
-    });
-  } else {
-    console.error('Open file button not found');
-  }
-
-  // Handle drag and drop
-  document.addEventListener('dragover', (e) => {
-    e.preventDefault();
-    e.stopPropagation();
+  document.addEventListener('dragover', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
   });
 
-  document.addEventListener('drop', (e) => {
-    e.preventDefault();
-    e.stopPropagation();
+  document.addEventListener('drop', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
 
-    const files = e.dataTransfer?.files;
-    if (files && files.length > 0) {
-      const file = files[0];
-      const filePath = (file as unknown as { path: string }).path;
-      if (filePath) {
-        window.livemark.openFilePath(filePath);
-      }
+    const filePaths = Array.from(event.dataTransfer?.files ?? [])
+      .map((file) => file.path)
+      .filter((filePath): filePath is string => typeof filePath === 'string' && filePath.length > 0);
+
+    if (filePaths.length > 0) {
+      window.livemark.openFilePaths(filePaths);
     }
   });
 });

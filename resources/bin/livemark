@@ -6,13 +6,14 @@ REAL_PATH="$(readlink "$0" 2>/dev/null || echo "$0")"
 SCRIPT_DIR="$(cd "$(dirname "$REAL_PATH")" && pwd)"
 APP_PATH="$(dirname "$(dirname "$(dirname "$SCRIPT_DIR")")")"
 
-if [ -z "$1" ]; then
+if [ "$#" -eq 0 ]; then
   open "$APP_PATH"
 else
-  FILE="$(cd "$(dirname "$1")" 2>/dev/null && pwd)/$(basename "$1")"
-  if [ ! -f "$FILE" ]; then
-    echo "livemark: $1: No such file" >&2
-    exit 1
-  fi
-  open -a "$APP_PATH" "$FILE"
+  for FILE in "$@"; do
+    if [ ! -f "$FILE" ]; then
+      echo "livemark: $FILE: No such file" >&2
+      exit 1
+    fi
+  done
+  open -a "$APP_PATH" "$@"
 fi

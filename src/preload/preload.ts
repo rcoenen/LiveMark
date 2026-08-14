@@ -1,20 +1,32 @@
 import { contextBridge, ipcRenderer } from 'electron';
 
-interface FileInfo {
+interface DocumentSnapshot {
+  id: string;
   path: string;
-  lastModified: Date;
+  content: string;
+  lastModified: number;
+}
+
+interface DocumentIdPayload {
+  id: string;
 }
 
 contextBridge.exposeInMainWorld('livemark', {
-  onMarkdownUpdate: (callback: (content: string) => void) => {
-    ipcRenderer.on('markdown-update', (_event, content: string) => {
-      callback(content);
+  onDocumentUpdate: (callback: (document: DocumentSnapshot) => void) => {
+    ipcRenderer.on('document-update', (_event, document: DocumentSnapshot) => {
+      callback(document);
     });
   },
 
-  onFileInfo: (callback: (info: FileInfo) => void) => {
-    ipcRenderer.on('file-info', (_event, info: FileInfo) => {
-      callback(info);
+  onDocumentActivated: (callback: (payload: DocumentIdPayload) => void) => {
+    ipcRenderer.on('document-activated', (_event, payload: DocumentIdPayload) => {
+      callback(payload);
+    });
+  },
+
+  onDocumentClosed: (callback: (payload: DocumentIdPayload) => void) => {
+    ipcRenderer.on('document-closed', (_event, payload: DocumentIdPayload) => {
+      callback(payload);
     });
   },
 
@@ -22,7 +34,15 @@ contextBridge.exposeInMainWorld('livemark', {
     ipcRenderer.send('open-file');
   },
 
-  openFilePath: (filePath: string) => {
-    ipcRenderer.send('open-file-path', filePath);
+  openFilePaths: (filePaths: string[]) => {
+    ipcRenderer.send('open-file-paths', filePaths);
+  },
+
+  activateDocument: (documentId: string) => {
+    ipcRenderer.send('activate-document', documentId);
+  },
+
+  closeDocument: (documentId: string) => {
+    ipcRenderer.send('close-document', documentId);
   },
 });

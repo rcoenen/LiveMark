@@ -7,6 +7,9 @@
   --code-bg: #f6f8fa;
   --link-color: #0366d6;
   --header-bg: #fafbfc;
+  --tab-hover-bg: #f3f4f6;
+  --tab-active-bg: #ffffff;
+  --focus-ring: rgba(3, 102, 214, 0.35);
 }
 
 html[data-theme="dark"] {
@@ -17,6 +20,9 @@ html[data-theme="dark"] {
   --code-bg: #161b22;
   --link-color: #58a6ff;
   --header-bg: #161b22;
+  --tab-hover-bg: #21262d;
+  --tab-active-bg: #0d1117;
+  --focus-ring: rgba(88, 166, 255, 0.4);
 }
 
 * {
@@ -80,6 +86,147 @@ body {
   transform: translateY(0);
 }
 
+/* Global application toolbar */
+.app-toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 140;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 44px;
+  color: var(--text-secondary);
+  background-color: var(--bg-color);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.app-title {
+  font-size: 12px;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+  color: var(--text-color);
+}
+
+/* Document tabs */
+.document-tabs-wrapper {
+  position: sticky;
+  top: 44px;
+  z-index: 120;
+  min-width: 0;
+  height: 42px;
+  background-color: var(--bg-color);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.document-tabs-wrapper[hidden] {
+  display: none;
+}
+
+.document-tabs {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  width: 100%;
+  height: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-color) transparent;
+}
+
+.document-tab {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+  min-width: 110px;
+  max-width: 260px;
+  height: 34px;
+  color: var(--text-secondary);
+  background-color: transparent;
+  border: 1px solid transparent;
+  border-bottom: 0;
+  border-radius: 7px 7px 0 0;
+}
+
+.document-tab:hover {
+  color: var(--text-color);
+  background-color: var(--tab-hover-bg);
+}
+
+.document-tab.is-active {
+  color: var(--text-color);
+  background-color: var(--tab-active-bg);
+  border-color: var(--border-color);
+  box-shadow: inset 0 2px 0 var(--link-color);
+}
+
+.document-tab__button,
+.document-tab__close {
+  appearance: none;
+  color: inherit;
+  background: transparent;
+  border: 0;
+  font: inherit;
+  cursor: pointer;
+}
+
+.document-tab__button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  height: 100%;
+  padding: 0 4px 0 10px;
+}
+
+.document-tab__button:focus-visible,
+.document-tab__close:focus-visible {
+  outline: 2px solid var(--link-color);
+  outline-offset: -2px;
+  box-shadow: 0 0 0 3px var(--focus-ring);
+  border-radius: 4px;
+}
+
+.document-tab__label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.document-tab__count {
+  min-width: 17px;
+  height: 17px;
+  padding: 0 5px;
+  color: white;
+  background-color: var(--link-color);
+  border-radius: 9px;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 17px;
+  text-align: center;
+}
+
+.document-tab__close {
+  flex: 0 0 auto;
+  width: 25px;
+  height: 25px;
+  margin-right: 3px;
+  padding: 0;
+  border-radius: 4px;
+  font-size: 17px;
+  line-height: 23px;
+  opacity: 0.65;
+}
+
+.document-tab__close:hover {
+  color: var(--text-color);
+  background-color: var(--border-color);
+  opacity: 1;
+}
+
 /* Metadata header */
 .metadata {
   position: sticky;
@@ -94,6 +241,14 @@ body {
   color: var(--text-secondary);
   background-color: var(--bg-color);
   z-index: 100;
+}
+
+.metadata[hidden] {
+  display: none;
+}
+
+.has-documents .metadata {
+  top: 86px;
 }
 
 .file-path {
@@ -414,4 +569,29 @@ html[data-theme="dark"] .hljs-builtin-name {
 
 .theme-toggle-switch input:checked + .theme-toggle-track::after {
   transform: translateX(14px);
+}
+
+.theme-toggle-switch input:focus-visible + .theme-toggle-track {
+  outline: 2px solid var(--link-color);
+  outline-offset: 2px;
+}
+
+@media (max-width: 600px) {
+  .container {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+
+  .document-tab {
+    min-width: 96px;
+    max-width: 190px;
+  }
+
+  .metadata-right {
+    gap: 8px;
+  }
+
+  .last-updated {
+    display: none;
+  }
 }
