@@ -13,6 +13,14 @@
 
 LiveMark renders local Markdown files and refreshes the preview whenever they change on disk. Open several documents in tabs and keep their previews running side by side.
 
+## Install
+
+1. **[Download the latest DMG](https://github.com/rcoenen/LiveMark/releases/latest).**
+2. Open it and drag LiveMark into Applications.
+3. Launch LiveMark and open a Markdown file.
+
+> LiveMark is currently unsigned. If macOS blocks the first launch, Control-click LiveMark in Applications, choose **Open**, then confirm **Open**.
+
 ## Why LiveMark?
 
 I built LiveMark for myself to improve observability in my coding workflows. Coding agents generate and update a lot of Markdown files, and I wanted a simple way to keep an eye on those changes as they happen. I needed this tool after MacDown was retired. Although MacDown worked through Rosetta, it was never updated to run natively on Apple silicon.
@@ -26,27 +34,17 @@ I built LiveMark for myself to improve observability in my coding workflows. Cod
 - Selection-aware copy as Markdown
 - Finder, drag-and-drop, Open dialog, and CLI support
 
-## Run from source
-
-Requires Node.js and macOS.
-
-```sh
-npm install
-npm start
-```
-
-## Build the macOS installer
-
-```sh
-npm run dist
-```
-
-The DMG and ZIP are written to `dist/`.
-
 ## CLI
 
 Install the `livemark` command from the LiveMark application menu, then open one or more files:
 
 ```sh
 livemark README.md notes.md
+```
+
+## Develop
+
+```sh
+npm install
+npm start
 ```
