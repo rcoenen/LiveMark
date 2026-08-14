@@ -6,6 +6,10 @@
 
 LiveMark renders local Markdown files and refreshes the preview whenever they change on disk. Open several documents in tabs and keep their previews running side by side.
 
+## Why LiveMark?
+
+I built LiveMark for myself to improve observability in my coding workflows. Coding agents generate and update a lot of Markdown files, and I wanted a simple way to keep an eye on those changes as they happen. I needed this tool after MacDown was retired—and it had never worked for me on Apple silicon Macs.
+
 ## Features
 
 - Live preview on every file save
