@@ -26,7 +26,7 @@
 - [x] 4.2 Replace electron-builder scripts with deterministic Tauri development, test, build, and distribution scripts.
 - [x] 4.3 Update CI to install the Rust toolchain and macOS prerequisites, cache Rust and Node dependencies, run frontend and Rust tests, and build the application on macOS.
 - [x] 4.4 Update release automation to ad-hoc sign and verify the Tauri app, verify the DMG, generate checksums, preserve public release filenames, and upload the expected assets.
-- [ ] 4.5 Verify the bundled CLI, in-app CLI installer, curl installer, and Homebrew cask against a locally packaged release and a draft GitHub Release.
+- [x] 4.5 Verify the bundled CLI, in-app CLI installer, curl installer, and Homebrew cask against a locally packaged release and a draft GitHub Release.
 - [x] 4.6 Update README development/distribution instructions and `openspec/project.md` to describe the Tauri architecture, prerequisites, security boundary, and version source.
 
 ## 5. Parity and Migration Verification
@@ -39,4 +39,4 @@
 ## 6. Electron Removal and Final Validation
 - [x] 6.1 Remove Electron main/preload sources, Electron type declarations, chokidar, Electron/electron-builder dependencies, and obsolete build output only after Sections 1–5 pass.
 - [x] 6.2 Run frontend build/tests, `cargo test`, a clean Tauri arm64 build, signature verification, DMG verification, installer/cask smoke tests, and `openspec validate replace-electron-with-tauri --strict`.
-- [ ] 6.3 Confirm every task and acceptance scenario is complete, then mark this checklist complete before requesting archive.
+- [x] 6.3 Confirm every task and acceptance scenario is complete, then mark this checklist complete before requesting archive.
