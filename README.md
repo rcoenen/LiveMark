@@ -13,6 +13,8 @@
 
 LiveMark renders local Markdown files and refreshes the preview whenever they change on disk. Open several documents in tabs and keep their previews running side by side.
 
+LiveMark uses Tauri and the native macOS WebView, so it does not bundle Electron, Chromium, or Node.js.
+
 ## Install
 
 ```sh
@@ -55,7 +57,19 @@ livemark README.md notes.md
 
 ## Develop
 
+Prerequisites: Node.js 20+, npm, the stable Rust toolchain, and Xcode Command Line Tools on Apple silicon macOS 11 or newer.
+
 ```sh
-npm install
-npm start
+npm ci
+npm run dev
 ```
+
+Run checks and create the signed local release artifacts:
+
+```sh
+npm test
+npm run build
+npm run dist
+```
+
+The release command writes the ad-hoc-signed app, DMG, zip, and checksums to `src-tauri/target/release/bundle/macos/` and `dist/`.

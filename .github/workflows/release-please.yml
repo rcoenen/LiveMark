@@ -35,7 +35,7 @@ jobs:
   build-release:
     needs: release-please
     if: ${{ always() && (github.event_name == 'workflow_dispatch' || needs.release-please.outputs.release_created == 'true') }}
-    runs-on: macos-14
+    runs-on: macos-15
     env:
       RELEASE_TAG: ${{ github.event.inputs.release_tag || needs.release-please.outputs.tag_name }}
     steps:
@@ -50,26 +50,32 @@ jobs:
           node-version: 20
           cache: npm
 
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
       - name: Install dependencies
         run: npm ci
 
-      - name: Build application
-        run: npm run build
+      - name: Test and build application
+        run: |
+          npm test
+          npm run build
 
       - name: Package Apple silicon release
-        env:
-          CSC_IDENTITY_AUTO_DISCOVERY: "false"
-        # Keep these overrides and explicit signing commands here so rebuilding
-        # a tag created before ad-hoc signing was configured is also safe.
-        run: |
-          npx electron-builder --mac --arm64 --dir --publish never -c.mac.identity=null -c.mac.hardenedRuntime=false
-          codesign --force --deep --sign - dist/mac-arm64/LiveMark.app
-          npx electron-builder --mac --arm64 --prepackaged dist/mac-arm64 --publish never
+        run: npm run dist
 
       - name: Verify application signature
         run: |
-          codesign --verify --deep --strict --verbose=2 dist/mac-arm64/LiveMark.app
-          codesign --display --verbose=4 dist/mac-arm64/LiveMark.app 2>&1 | grep -q "Signature=adhoc"
+          APP=src-tauri/target/release/bundle/macos/LiveMark.app
+          codesign --verify --deep --strict --verbose=2 "$APP"
+          codesign --display --verbose=4 "$APP" 2>&1 | grep -q "Signature=adhoc"
 
       - name: Verify DMG
         run: hdiutil verify dist/LiveMark-*-arm64.dmg

@@ -9,7 +9,7 @@
       "extra-files": [
         {
           "type": "generic",
-          "path": "src/main/main.ts"
+          "path": "src-tauri/Cargo.toml"
         }
       ]
     }

@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "main-capability",
+  "description": "The main LiveMark viewer can use core window and event APIs only.",
+  "windows": ["main"],
+  "permissions": ["core:default"]
+}

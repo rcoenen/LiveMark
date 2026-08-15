@@ -2,7 +2,7 @@
 # Install LiveMark from the latest GitHub release and strip Gatekeeper quarantine.
 # Usage:
 #   curl -fsSL https://raw.githubusercontent.com/rcoenen/LiveMark/main/scripts/install.sh | bash
-#   LIVEMARK_VERSION=1.3.0 ./scripts/install.sh
+#   LIVEMARK_VERSION=1.4.0 ./scripts/install.sh
 
 set -euo pipefail
 
@@ -10,7 +10,7 @@ REPO="rcoenen/LiveMark"
 APP_NAME="LiveMark"
 INSTALL_DIR="${LIVEMARK_INSTALL_DIR:-/Applications}"
 DEST="${INSTALL_DIR}/${APP_NAME}.app"
-RELEASES_URL="https://github.com/${REPO}/releases"
+RELEASES_URL="${LIVEMARK_RELEASES_URL:-https://github.com/${REPO}/releases}"
 
 need() {
   if ! command -v "$1" >/dev/null 2>&1; then
@@ -87,7 +87,7 @@ if [ ! -d "${MOUNT}/${APP_NAME}.app" ]; then
   exit 1
 fi
 
-if [ -e "$DEST" ] && lsof -t "${DEST}/Contents/MacOS/${APP_NAME}" >/dev/null 2>&1; then
+if [ -e "$DEST" ] && lsof -t "${DEST}/Contents/MacOS/livemark" >/dev/null 2>&1; then
   echo "livemark: ${APP_NAME} is running from ${DEST}. Quit it and run the installer again." >&2
   exit 1
 fi

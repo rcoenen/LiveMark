@@ -1,13 +1,7 @@
 import markdownit from 'markdown-it';
 import hljs from 'highlight.js';
 import TurndownService from 'turndown';
-
-interface DocumentSnapshot {
-  id: string;
-  path: string;
-  content: string;
-  lastModified: number;
-}
+import { installLiveMarkBridge, type DocumentSnapshot } from './platform';
 
 interface OpenDocument extends DocumentSnapshot {
   updateCount: number;
@@ -43,12 +37,6 @@ function formatDate(date: number): string {
   return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
 }
 
-function dirname(filePath: string): string {
-  const cleaned = filePath.replace(/\\/g, '/');
-  const lastSlash = cleaned.lastIndexOf('/');
-  return lastSlash >= 0 ? cleaned.substring(0, lastSlash) : '.';
-}
-
 function basename(filePath: string): string {
   const cleaned = filePath.replace(/\\/g, '/');
   const lastSlash = cleaned.lastIndexOf('/');
@@ -56,6 +44,7 @@ function basename(filePath: string): string {
 }
 
 const THEME_KEY = 'livemark-theme';
+const livemark = installLiveMarkBridge();
 
 function applyTheme(dark: boolean): void {
   document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
@@ -79,10 +68,10 @@ document.addEventListener('DOMContentLoaded', () => {
   const themeToggleInput = document.getElementById('theme-toggle-input') as HTMLInputElement;
   const tabsWrapperEl = document.getElementById('document-tabs-wrapper') as HTMLElement;
   const tabsEl = document.getElementById('document-tabs') as HTMLElement;
+  const appVersionEl = document.getElementById('app-version') as HTMLElement;
 
   const documents = new Map<string, OpenDocument>();
   let activeDocumentId: string | null = null;
-  let activeFileDir = '';
   let notificationTimer: number | null = null;
   let flashTimer: number | null = null;
 
@@ -97,10 +86,9 @@ document.addEventListener('DOMContentLoaded', () => {
   md.renderer.rules.image = (tokens, idx, options, env, self) => {
     const token = tokens[idx];
     const src = token.attrGet('src');
-    if (src && !/^(https?:\/\/|data:|file:\/\/)/i.test(src) && activeFileDir) {
-      const cleaned = src.replace(/\\/g, '/');
-      const resolved = cleaned.startsWith('/') ? `file://${cleaned}` : `file://${activeFileDir}/${cleaned}`;
-      token.attrSet('src', resolved);
+    if (src && !/^(https?:\/\/|data:)/i.test(src) && activeDocumentId) {
+      token.attrSet('data-livemark-source', src);
+      token.attrSet('src', 'data:,');
     }
     return defaultImageRenderer(tokens, idx, options, env, self);
   };
@@ -145,7 +133,7 @@ document.addEventListener('DOMContentLoaded', () => {
   function requestDocumentActivation(documentId: string, moveFocus = false): void {
     if (!documents.has(documentId)) return;
     activateDocument(documentId);
-    window.livemark.activateDocument(documentId);
+    void livemark.activateDocument(documentId);
     if (moveFocus) {
       focusTab(documentId);
     }
@@ -198,7 +186,7 @@ document.addEventListener('DOMContentLoaded', () => {
       closeButton.textContent = '×';
       closeButton.title = `Close ${name}`;
       closeButton.setAttribute('aria-label', `Close ${name}`);
-      closeButton.addEventListener('click', () => window.livemark.closeDocument(documentState.id));
+      closeButton.addEventListener('click', () => void livemark.closeDocument(documentState.id));
 
       tabItem.append(tabButton, closeButton);
       tabsEl.appendChild(tabItem);
@@ -207,7 +195,6 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function showEmptyState(): void {
-    activeFileDir = '';
     contentEl.innerHTML = '';
     contentEl.style.display = 'none';
     contentEl.removeAttribute('aria-labelledby');
@@ -232,9 +219,21 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    activeFileDir = dirname(activeDocument.path);
     metadataEl.hidden = false;
     contentEl.innerHTML = md.render(activeDocument.content);
+    const renderedDocumentId = activeDocument.id;
+    for (const image of Array.from(contentEl.querySelectorAll<HTMLImageElement>('img'))) {
+      const source = image.dataset.livemarkSource ?? image.getAttribute('src');
+      if (!source || /^(https?:\/\/|data:)/i.test(source)) continue;
+      image.src = 'data:,';
+      void livemark.resolveLocalImage(renderedDocumentId, source).then((dataUrl) => {
+        if (activeDocumentId === renderedDocumentId && image.isConnected) {
+          image.src = dataUrl;
+        }
+      }).catch(() => {
+        image.removeAttribute('src');
+      });
+    }
     contentEl.style.display = 'block';
     contentEl.setAttribute('aria-labelledby', `document-tab-${Array.from(documents.keys()).indexOf(activeDocument.id)}`);
     emptyStateEl.style.display = 'none';
@@ -282,7 +281,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  window.livemark.onDocumentUpdate((snapshot: DocumentSnapshot) => {
+  function upsertDocument(snapshot: DocumentSnapshot, countAsUpdate: boolean): void {
     const existingDocument = documents.get(snapshot.id);
     if (existingDocument) {
       if (snapshot.id === activeDocumentId) {
@@ -291,10 +290,12 @@ document.addEventListener('DOMContentLoaded', () => {
       existingDocument.path = snapshot.path;
       existingDocument.content = snapshot.content;
       existingDocument.lastModified = snapshot.lastModified;
-      existingDocument.updateCount++;
+      if (countAsUpdate) {
+        existingDocument.updateCount++;
+      }
       renderTabs();
 
-      if (snapshot.id === activeDocumentId) {
+      if (countAsUpdate && snapshot.id === activeDocumentId) {
         renderActiveDocument();
         showNotification('Updated', 1500, true);
       }
@@ -307,13 +308,17 @@ document.addEventListener('DOMContentLoaded', () => {
       scrollTop: 0,
     });
     renderTabs();
+  }
+
+  livemark.onDocumentUpdate((snapshot: DocumentSnapshot) => {
+    upsertDocument(snapshot, true);
   });
 
-  window.livemark.onDocumentActivated(({ id }) => {
+  livemark.onDocumentActivated(({ id }) => {
     activateDocument(id);
   });
 
-  window.livemark.onDocumentClosed(({ id }) => {
+  livemark.onDocumentClosed(({ id }) => {
     const documentIds = Array.from(documents.keys());
     const closingIndex = documentIds.indexOf(id);
     const wasActive = activeDocumentId === id;
@@ -355,24 +360,22 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   openFileBtn.addEventListener('click', () => {
-    window.livemark.openFile();
+    void livemark.openFile();
   });
 
-  document.addEventListener('dragover', (event) => {
-    event.preventDefault();
-    event.stopPropagation();
-  });
-
-  document.addEventListener('drop', (event) => {
-    event.preventDefault();
-    event.stopPropagation();
-
-    const filePaths = Array.from(event.dataTransfer?.files ?? [])
-      .map((file) => file.path)
-      .filter((filePath): filePath is string => typeof filePath === 'string' && filePath.length > 0);
-
+  livemark.onFileDrop((filePaths) => {
     if (filePaths.length > 0) {
-      window.livemark.openFilePaths(filePaths);
+      void livemark.openFilePaths(filePaths);
+    }
+  });
+
+  void livemark.bootstrap().then((state) => {
+    appVersionEl.textContent = `v${state.version}`;
+    for (const snapshot of state.documents) {
+      upsertDocument(snapshot, false);
+    }
+    if (state.activeDocumentId) {
+      activateDocument(state.activeDocumentId);
     }
   });
 });

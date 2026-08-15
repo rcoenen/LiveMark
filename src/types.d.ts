@@ -31,18 +31,5 @@ declare module 'markdown-it' {
 }
 
 interface Window {
-  livemark: {
-    onDocumentUpdate: (callback: (document: {
-      id: string;
-      path: string;
-      content: string;
-      lastModified: number;
-    }) => void) => void;
-    onDocumentActivated: (callback: (payload: { id: string }) => void) => void;
-    onDocumentClosed: (callback: (payload: { id: string }) => void) => void;
-    openFile: () => void;
-    openFilePaths: (filePaths: string[]) => void;
-    activateDocument: (documentId: string) => void;
-    closeDocument: (documentId: string) => void;
-  };
+  livemark: import('./renderer/platform').LiveMarkBridge;
 }

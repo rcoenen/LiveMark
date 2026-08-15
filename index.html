@@ -3,16 +3,18 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; img-src * data:">
   <title>LiveMark</title>
-  <link rel="stylesheet" href="dist/renderer/styles.css">
+  <link rel="stylesheet" href="renderer/styles.css">
 </head>
 <body>
   <div id="screen-flash" class="screen-flash"></div>
   <div class="container">
     <div id="update-notification" class="update-notification">Updated</div>
     <header class="app-toolbar">
-      <span class="app-title">LiveMark</span>
+      <span class="app-identity">
+        <span class="app-title">LiveMark</span>
+        <span id="app-version" class="app-version" aria-label="Application version"></span>
+      </span>
       <label class="theme-toggle" title="Toggle light/dark mode">
         <span class="theme-toggle-label">Dark</span>
         <span class="theme-toggle-switch">
@@ -42,6 +44,6 @@
     </div>
   </div>
 
-  <script src="dist/renderer/renderer.js"></script>
+  <script src="renderer/renderer.js"></script>
 </body>
 </html>
