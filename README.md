@@ -15,17 +15,21 @@ LiveMark renders local Markdown files and refreshes the preview whenever they ch
 
 ## Install
 
-1. **[Download the latest DMG](https://github.com/rcoenen/LiveMark/releases/latest).**
-2. Open it and drag LiveMark into Applications.
-3. Try to open LiveMark once. macOS will block the first launch because the app
-   is not notarized.
-4. Open **System Settings → Privacy & Security**, scroll to **Security**, and
-   click **Open Anyway** next to LiveMark.
-5. Confirm **Open**, then open a Markdown file.
+```sh
+brew install --cask rcoenen/livemark/livemark
+```
 
-> LiveMark is ad-hoc signed but not Apple-notarized. The one-time **Open Anyway**
-> step is required because notarization requires a paid Apple Developer account.
-> Apple has enough money already; we're not paying them to remove one click.
+Or:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/rcoenen/LiveMark/main/scripts/install.sh | bash
+```
+
+Or download the [DMG](https://github.com/rcoenen/LiveMark/releases/latest), drag LiveMark into Applications, then:
+
+```sh
+xattr -cr /Applications/LiveMark.app
+```
 
 ## Why LiveMark?
 

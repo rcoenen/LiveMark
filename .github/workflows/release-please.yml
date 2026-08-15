@@ -90,10 +90,15 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          if [ ! -f scripts/install.sh ]; then
+            git fetch origin main --depth 1
+            git checkout origin/main -- scripts/install.sh
+          fi
           gh release upload "$RELEASE_TAG" \
             dist/LiveMark-*-arm64.dmg \
             dist/LiveMark-*-arm64-mac.zip \
             dist/SHA256SUMS.txt \
+            scripts/install.sh \
             --clobber
 
       - name: Preserve workflow artifacts
@@ -104,4 +109,5 @@ jobs:
             dist/LiveMark-*-arm64.dmg
             dist/LiveMark-*-arm64-mac.zip
             dist/SHA256SUMS.txt
+            scripts/install.sh
           if-no-files-found: error
