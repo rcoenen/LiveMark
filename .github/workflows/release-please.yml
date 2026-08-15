@@ -101,6 +101,31 @@ jobs:
             scripts/install.sh \
             --clobber
 
+      - name: Update Homebrew cask on main
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          VERSION="${RELEASE_TAG#v}"
+          SHA256="$(shasum -a 256 "dist/LiveMark-${VERSION}-arm64.dmg" | awk '{print $1}')"
+          git fetch origin main
+          git checkout main
+          if [ ! -f Casks/livemark.rb ]; then
+            echo "No Homebrew cask on main; skipping"
+            exit 0
+          fi
+          perl -i -pe "s/^  version \".*\"/  version \"${VERSION}\"/" Casks/livemark.rb
+          perl -i -pe "s/^  sha256 \".*\"/  sha256 \"${SHA256}\"/" Casks/livemark.rb
+          if git diff --quiet -- Casks/livemark.rb; then
+            echo "Homebrew cask already up to date"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Casks/livemark.rb
+          git commit -m "chore(brew): bump livemark cask to ${VERSION}"
+          git push origin main
+
       - name: Preserve workflow artifacts
         uses: actions/upload-artifact@v4
         with:

@@ -16,6 +16,7 @@ LiveMark renders local Markdown files and refreshes the preview whenever they ch
 ## Install
 
 ```sh
+brew tap rcoenen/livemark https://github.com/rcoenen/LiveMark
 brew install --cask rcoenen/livemark/livemark
 ```
 
