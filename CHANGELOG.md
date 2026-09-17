@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.4.1](https://github.com/rcoenen/LiveMark/compare/v1.4.0...v1.4.1) (2026-09-17)
+
+
+### Features
+
+* document text zoom, leaner Window menu, Node 24 in CI ([09244a1](https://github.com/rcoenen/LiveMark/commit/09244a1d2481c33910d7b1dae5adb3f8ef75b177))
+* documents rail, live-reload feedback, safe rendering and split view ([457d64c](https://github.com/rcoenen/LiveMark/commit/457d64c0f9b5afc556bd15a63b84dfedb5943a40))
+* documents rail, live-reload feedback, safe rendering and split view ([2f2fc4e](https://github.com/rcoenen/LiveMark/commit/2f2fc4eeef2781ef3aa705ec0a863fef117e2b10))
+
 ## [1.4.0](https://github.com/rcoenen/LiveMark/compare/v1.3.1...v1.4.0) (2026-08-15)
 
 
