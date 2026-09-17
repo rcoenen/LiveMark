@@ -12,6 +12,20 @@ pub const MENU_RESET_ZOOM: &str = "reset-zoom";
 pub const MENU_ZOOM_IN: &str = "zoom-in";
 pub const MENU_ZOOM_OUT: &str = "zoom-out";
 
+/// Menu items with this prefix are handled by the renderer; the rest of the id is the command name.
+pub const RENDERER_COMMAND_PREFIX: &str = "renderer:";
+
+fn renderer_item(
+    app: &App,
+    command: &str,
+    label: &str,
+    accelerator: &str,
+) -> tauri::Result<tauri::menu::MenuItem<Wry>> {
+    MenuItemBuilder::with_id(format!("{RENDERER_COMMAND_PREFIX}{command}"), label)
+        .accelerator(accelerator)
+        .build(app)
+}
+
 pub fn build_menu(app: &App) -> tauri::Result<Menu<Wry>> {
     let install_cli =
         MenuItemBuilder::with_id(MENU_INSTALL_CLI, "Install CLI Command…").build(app)?;
@@ -38,16 +52,21 @@ pub fn build_menu(app: &App) -> tauri::Result<Menu<Wry>> {
     let close_window = MenuItemBuilder::with_id(MENU_CLOSE_WINDOW, "Close Window")
         .accelerator("CmdOrCtrl+Shift+W")
         .build(app)?;
+    let go_to_file = renderer_item(app, "go-to-file", "Go to File…", "CmdOrCtrl+P")?;
     let file_menu = SubmenuBuilder::new(app, "File")
         .item(&open)
+        .item(&go_to_file)
         .separator()
         .item(&close_tab)
         .item(&close_window)
         .build()?;
 
+    let find = renderer_item(app, "find", "Find…", "CmdOrCtrl+F")?;
     let edit_menu = SubmenuBuilder::new(app, "Edit")
         .copy()
         .select_all()
+        .separator()
+        .item(&find)
         .build()?;
 
     let reload = MenuItemBuilder::with_id(MENU_RELOAD, "Reload")
@@ -68,7 +87,14 @@ pub fn build_menu(app: &App) -> tauri::Result<Menu<Wry>> {
     let zoom_out = MenuItemBuilder::with_id(MENU_ZOOM_OUT, "Zoom Out")
         .accelerator("CmdOrCtrl+-")
         .build(app)?;
+    let toggle_pause = renderer_item(app, "toggle-pause", "Pause Live Reload", "CmdOrCtrl+Shift+P")?;
+    let next_change = renderer_item(app, "next-change", "Jump to Next Change", "CmdOrCtrl+Shift+N")?;
+    let toggle_split = renderer_item(app, "toggle-split", "Split View", "CmdOrCtrl+\\")?;
     let view_menu = SubmenuBuilder::new(app, "View")
+        .item(&toggle_pause)
+        .item(&next_change)
+        .item(&toggle_split)
+        .separator()
         .item(&reload)
         .item(&force_reload)
         .item(&devtools)
@@ -80,9 +106,19 @@ pub fn build_menu(app: &App) -> tauri::Result<Menu<Wry>> {
         .fullscreen()
         .build()?;
 
-    let window_menu = SubmenuBuilder::new(app, "Window")
+    let mut window_menu = SubmenuBuilder::new(app, "Window")
         .minimize()
         .maximize()
+        .separator();
+    for number in 1..=9 {
+        window_menu = window_menu.item(&renderer_item(
+            app,
+            &format!("show-document-{number}"),
+            &format!("Show Document {number}"),
+            &format!("CmdOrCtrl+{number}"),
+        )?);
+    }
+    let window_menu = window_menu
         .separator()
         .bring_all_to_front()
         .build()?;

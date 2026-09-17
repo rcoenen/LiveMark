@@ -67,8 +67,8 @@ Rust unit tests cover path validation and document registry behavior. CI runs Ty
 - **macOS only** — Apple-specific fonts, `osascript`, and the `open -a` CLI pattern; arm64 distribution requires macOS 11 (Big Sur) or newer
 - **arm64 only** distribution currently (no Intel/universal builds)
 - **Security model:** least-privilege Tauri capabilities, registered application commands, no shell plugin, no general filesystem plugin, and a restrictive CSP
-- **No network access** — the app is fully offline, no telemetry, no API calls
+- **No network access by the app itself** — no telemetry, no API calls. The only network requests are remote `http(s)` images referenced by a document, and links the user opens in their browser
 - **App bundle ID:** `com.livemark.app`
 
 ## External Dependencies
-None — LiveMark is fully offline with no external services, APIs, or network calls. All dependencies are bundled into the application.
+None — LiveMark uses no external services or APIs, and all dependencies are bundled into the application. Documents may reference remote images, which the webview loads.

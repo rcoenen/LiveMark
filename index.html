@@ -7,41 +7,114 @@
   <link rel="stylesheet" href="renderer/styles.css">
 </head>
 <body>
-  <div id="screen-flash" class="screen-flash"></div>
-  <div class="container">
-    <div id="update-notification" class="update-notification">Updated</div>
-    <header class="app-toolbar">
-      <span class="app-identity">
-        <span class="app-title">LiveMark</span>
-        <span id="app-version" class="app-version" aria-label="Application version"></span>
-      </span>
-      <label class="theme-toggle" title="Toggle light/dark mode">
-        <span class="theme-toggle-label">Dark</span>
-        <span class="theme-toggle-switch">
+  <aside id="rail" class="rail" data-string-aria-label="rail.label">
+    <div class="rail__titlebar" data-tauri-drag-region></div>
+    <button id="go-to-file-btn" type="button" class="rail__search">
+      <svg width="13" height="13" viewBox="0 0 15 15" fill="none" stroke="currentColor" stroke-width="1.2" aria-hidden="true"><circle cx="6.5" cy="6.5" r="4.5"></circle><path d="M10 10l3.5 3.5"></path></svg>
+      <span data-string="rail.goToFile"></span>
+      <kbd class="kbd">⌘P</kbd>
+    </button>
+    <div id="rail-heading" class="rail__heading"></div>
+    <div id="document-tabs" class="document-tabs" role="tablist" aria-orientation="vertical" aria-labelledby="rail-heading"></div>
+
+    <footer class="rail__footer">
+      <div class="rail__footer-row">
+        <span id="watching-count"></span>
+        <span class="rail__hint" data-string="rail.closeHint"></span>
+      </div>
+      <label class="theme-toggle" data-string-title="rail.themeTitle">
+        <span class="theme-toggle-label"><span data-string="rail.theme"></span> <span id="app-version" class="app-version" data-string-aria-label="rail.versionLabel"></span></span>
+        <span class="switch">
           <input type="checkbox" id="theme-toggle-input">
-          <span class="theme-toggle-track"></span>
+          <span class="switch__track"></span>
         </span>
       </label>
-    </header>
-    <div id="document-tabs-wrapper" class="document-tabs-wrapper" hidden>
-      <div id="document-tabs" class="document-tabs" role="tablist" aria-label="Open documents"></div>
-    </div>
-    <header id="document-metadata" class="metadata" hidden>
-      <span id="file-path" class="file-path"></span>
-      <span class="metadata-right">
-        <span id="update-count" class="update-count"></span>
-        <span id="last-updated" class="last-updated"></span>
-      </span>
-    </header>
+    </footer>
+  </aside>
 
-    <main id="content" class="content" role="tabpanel" tabindex="0" style="display: none;"></main>
+  <div id="workspace" class="workspace">
+    <div class="workspace__titlebar" data-tauri-drag-region></div>
+    <div id="panes" class="panes"></div>
 
     <div id="empty-state" class="empty-state">
-      <h1>LiveMark</h1>
-      <p>Open a Markdown file to get started</p>
-      <button id="open-file-btn" class="open-file-btn">Open File...</button>
-      <p class="hint">Or drag and drop files, or pass file paths as arguments</p>
+      <h1 data-string="empty.title"></h1>
+      <p data-string="empty.lead"></p>
+      <button id="open-file-btn" class="open-file-btn" data-string="empty.open"></button>
+      <p class="hint" data-string="empty.hint"></p>
     </div>
+  </div>
+
+  <aside id="margin-column" class="margin-column" data-string-aria-label="margin.label">
+    <section id="live-status" class="live-status" data-state="idle" aria-live="polite" hidden>
+      <div class="live-status__row">
+        <span class="live-status__dot" aria-hidden="true"></span>
+        <span id="live-status-label" class="live-status__label"></span>
+      </div>
+      <div id="live-status-detail" class="live-status__detail"></div>
+      <div class="live-status__actions">
+        <button id="status-action-btn" type="button" class="link-button" hidden></button>
+        <kbd id="status-action-kbd" class="kbd" hidden>⌘⇧N</kbd>
+        <button id="pause-btn" type="button" class="link-button live-status__pause"></button>
+      </div>
+      <div class="live-status__recent">
+        <div id="reload-log-list" class="reload-log-list"></div>
+        <button id="all-reloads-btn" type="button" class="link-button" aria-expanded="false" aria-controls="history-popover" data-string="status.allReloads"></button>
+      </div>
+    </section>
+    <nav id="outline" class="margin-section" aria-labelledby="outline-heading" hidden>
+      <span id="outline-heading" class="margin-section__heading" data-string="margin.outline"></span>
+      <div id="outline-list" class="outline-list"></div>
+    </nav>
+    <section id="links-out" class="margin-section" aria-labelledby="links-out-heading" hidden>
+      <span id="links-out-heading" class="margin-section__heading" data-string="margin.linksOut"></span>
+      <div id="links-out-list" class="links-out-list"></div>
+    </section>
+    <dl class="file-facts">
+      <dt data-string="facts.path"></dt><dd id="file-path" class="file-path"></dd>
+      <dt data-string="facts.modified"></dt><dd id="last-updated"></dd>
+      <dt data-string="facts.size"></dt><dd id="fact-size"></dd>
+      <dt data-string="facts.opened"></dt><dd id="fact-opened"></dd>
+    </dl>
+  </aside>
+
+  <div id="history-popover" class="popover" role="dialog" data-string-aria-label="history.label" hidden>
+    <div class="popover__header">
+      <span class="popover__title" data-string="history.title"></span>
+      <span id="history-since" class="popover__subtitle"></span>
+    </div>
+    <div id="history-list" class="history-list"></div>
+    <div class="popover__footer">
+      <button id="clear-marks-btn" type="button" class="link-button" data-string="history.clearMarks"></button>
+      <span class="popover__step"><span data-string="history.step"></span> <kbd class="kbd kbd--boxed">⌘⇧N</kbd></span>
+    </div>
+    <div class="popover__settings">
+      <span class="margin-section__heading" data-string="settings.title"></span>
+      <label class="setting"><span data-string="settings.markBlocks"></span><span class="switch"><input type="checkbox" id="setting-mark-blocks"><span class="switch__track"></span></span></label>
+      <label class="setting"><span data-string="settings.fadeMarks"></span><span class="switch"><input type="checkbox" id="setting-fade-marks"><span class="switch__track"></span></span></label>
+      <label class="setting"><span data-string="settings.notify"></span><span class="switch"><input type="checkbox" id="setting-notify-all"><span class="switch__track"></span></span></label>
+    </div>
+  </div>
+
+  <div id="palette" class="palette" role="dialog" data-string-aria-label="palette.label" hidden>
+    <input id="palette-input" class="palette__input" type="text" data-string-placeholder="palette.placeholder" autocomplete="off" spellcheck="false" role="combobox" aria-expanded="true" aria-controls="palette-list">
+    <div id="palette-list" class="palette__list" role="listbox"></div>
+  </div>
+
+  <div id="find-bar" class="find-bar" role="search" data-string-aria-label="find.label" hidden>
+    <input id="find-input" class="find-bar__input" type="text" data-string-placeholder="find.placeholder" autocomplete="off" spellcheck="false">
+    <span id="find-count" class="find-bar__count" aria-live="polite"></span>
+    <button id="find-close-btn" type="button" class="icon-button" data-string-title="find.close" data-string-aria-label="find.close">
+      <svg width="11" height="11" viewBox="0 0 15 15" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M4 4l7 7M11 4l-7 7"></path></svg>
+    </button>
+  </div>
+
+  <div id="update-notification" class="toast" role="status">
+    <span class="toast__dot" aria-hidden="true"></span>
+    <div class="toast__text">
+      <span id="toast-title" class="toast__title"></span>
+      <span id="toast-detail" class="toast__detail"></span>
+    </div>
+    <button id="toast-view-btn" type="button" class="link-button" data-string="toast.view" hidden></button>
   </div>
 
   <script src="renderer/renderer.js"></script>

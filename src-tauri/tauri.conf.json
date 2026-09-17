@@ -9,19 +9,9 @@
     "frontendDist": "../dist/frontend"
   },
   "app": {
-    "windows": [
-      {
-        "label": "main",
-        "title": "LiveMark",
-        "width": 900,
-        "height": 700,
-        "minWidth": 400,
-        "minHeight": 300,
-        "dragDropEnabled": true
-      }
-    ],
+    "windows": [],
     "security": {
-      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: http: https:; connect-src ipc: http://ipc.localhost"
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: http: https:; connect-src ipc: http://ipc.localhost; base-uri 'none'; form-action 'none'; frame-src 'none'; object-src 'none'"
     }
   },
   "bundle": {
