@@ -98,6 +98,7 @@ const STRINGS = {
   'toast.located': 'Document located',
   'toast.changeGone': 'That change is no longer in the document',
   'toast.noChanges': 'No changes to show',
+  'toast.textZoom': 'Text size {percent}%',
   'toast.tooNarrow': 'Window too narrow to split',
   'toast.tooNarrowDetail': 'Widen the window to read two documents side by side.',
   'palette.label': 'Go to file',

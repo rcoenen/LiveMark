@@ -8,8 +8,7 @@ use crate::document::{
 use crate::links::{LinkTarget, classify_link, resolve_image_path};
 use crate::menu::{
     MENU_CLOSE_TAB, MENU_CLOSE_WINDOW, MENU_FORCE_RELOAD, MENU_INSTALL_CLI, MENU_OPEN, MENU_RELOAD,
-    MENU_RESET_ZOOM, MENU_TOGGLE_DEVTOOLS, MENU_ZOOM_IN, MENU_ZOOM_OUT, RENDERER_COMMAND_PREFIX,
-    build_menu,
+    MENU_TOGGLE_DEVTOOLS, RENDERER_COMMAND_PREFIX, build_menu,
 };
 use base64::Engine;
 use notify::{Event, RecommendedWatcher, RecursiveMode, Watcher};
@@ -45,7 +44,6 @@ struct RuntimeData {
 struct RuntimeState {
     data: Mutex<RuntimeData>,
     watcher: Mutex<RecommendedWatcher>,
-    zoom: Mutex<f64>,
 }
 
 #[derive(Default)]
@@ -748,20 +746,6 @@ fn handle_menu_event(app: &AppHandle<Wry>, event: MenuEvent) {
                 }
             }
         }
-        MENU_RESET_ZOOM | MENU_ZOOM_IN | MENU_ZOOM_OUT => {
-            let state = app.state::<RuntimeState>();
-            if let Ok(mut zoom) = state.zoom.lock() {
-                *zoom = match event.id().as_ref() {
-                    MENU_RESET_ZOOM => 1.0,
-                    MENU_ZOOM_IN => (*zoom + 0.1).min(3.0),
-                    MENU_ZOOM_OUT => (*zoom - 0.1).max(0.5),
-                    _ => *zoom,
-                };
-                if let Some(window) = app.get_webview_window(MAIN_WINDOW_LABEL) {
-                    let _ = window.set_zoom(*zoom);
-                }
-            }
-        }
         id => {
             if let Some(command) = id.strip_prefix(RENDERER_COMMAND_PREFIX) {
                 let _ = app.emit_to(MAIN_WINDOW_LABEL, "menu-command", command);
@@ -811,7 +795,6 @@ pub fn run() {
             app.manage(RuntimeState {
                 data: Mutex::new(RuntimeData::default()),
                 watcher: Mutex::new(watcher),
-                zoom: Mutex::new(1.0),
             });
             app.set_menu(build_menu(app)?)?;
             create_main_window(app)?;

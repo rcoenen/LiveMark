@@ -70,3 +70,14 @@ All interface copy SHALL come from a single string table so the interface can be
 #### Scenario: Counted strings
 - **WHEN** a count is shown, such as "1 change" or "3 changes"
 - **THEN** the singular or plural form SHALL be selected through the string table
+
+### Requirement: Text Zoom
+The app SHALL let the user scale the document text from the View menu and with ⌘+ (also ⌘=), ⌘- and ⌘0, in steps of 10% between 50% and 300%, where ⌘0 resets to 100%. Text zoom SHALL NOT scale the rail, the margin column or the reading measure, and SHALL persist across launches.
+
+#### Scenario: Make text bigger
+- **WHEN** the user presses ⌘+ at 100%
+- **THEN** the document text SHALL render at 110% while the rail and the 680px measure stay unchanged
+
+#### Scenario: Reset
+- **WHEN** the user presses ⌘0
+- **THEN** the document text SHALL return to 100%

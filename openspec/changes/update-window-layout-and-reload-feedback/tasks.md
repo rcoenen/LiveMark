@@ -16,6 +16,7 @@
 - [x] 3.3 Reload toast opt-in; block count in the changed-block label.
 - [x] 3.4 Find in document (⌘F) with hit count and Enter / Shift+Enter stepping.
 - [x] 3.5 String table for all interface copy, including static markup.
+- [x] 3.6 Text zoom (⌘+ / ⌘= / ⌘- / ⌘0) for the document only, persisted; replaces whole-window zoom in the View menu.
 
 ## 4. Verification
 - [x] 4.1 TypeScript and frontend production build, Rust tests.

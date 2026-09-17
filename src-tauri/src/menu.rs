@@ -8,9 +8,6 @@ pub const MENU_INSTALL_CLI: &str = "install-cli";
 pub const MENU_RELOAD: &str = "reload";
 pub const MENU_FORCE_RELOAD: &str = "force-reload";
 pub const MENU_TOGGLE_DEVTOOLS: &str = "toggle-devtools";
-pub const MENU_RESET_ZOOM: &str = "reset-zoom";
-pub const MENU_ZOOM_IN: &str = "zoom-in";
-pub const MENU_ZOOM_OUT: &str = "zoom-out";
 
 /// Menu items with this prefix are handled by the renderer; the rest of the id is the command name.
 pub const RENDERER_COMMAND_PREFIX: &str = "renderer:";
@@ -78,15 +75,9 @@ pub fn build_menu(app: &App) -> tauri::Result<Menu<Wry>> {
     let devtools = MenuItemBuilder::with_id(MENU_TOGGLE_DEVTOOLS, "Toggle Developer Tools")
         .accelerator("Alt+CmdOrCtrl+I")
         .build(app)?;
-    let reset_zoom = MenuItemBuilder::with_id(MENU_RESET_ZOOM, "Actual Size")
-        .accelerator("CmdOrCtrl+0")
-        .build(app)?;
-    let zoom_in = MenuItemBuilder::with_id(MENU_ZOOM_IN, "Zoom In")
-        .accelerator("CmdOrCtrl+Plus")
-        .build(app)?;
-    let zoom_out = MenuItemBuilder::with_id(MENU_ZOOM_OUT, "Zoom Out")
-        .accelerator("CmdOrCtrl+-")
-        .build(app)?;
+    let reset_zoom = renderer_item(app, "text-zoom-reset", "Actual Size", "CmdOrCtrl+0")?;
+    let zoom_in = renderer_item(app, "text-zoom-in", "Make Text Bigger", "CmdOrCtrl+=")?;
+    let zoom_out = renderer_item(app, "text-zoom-out", "Make Text Smaller", "CmdOrCtrl+-")?;
     let toggle_pause = renderer_item(app, "toggle-pause", "Pause Live Reload", "CmdOrCtrl+Shift+P")?;
     let next_change = renderer_item(app, "next-change", "Jump to Next Change", "CmdOrCtrl+Shift+N")?;
     let toggle_split = renderer_item(app, "toggle-split", "Split View", "CmdOrCtrl+\\")?;
@@ -106,19 +97,9 @@ pub fn build_menu(app: &App) -> tauri::Result<Menu<Wry>> {
         .fullscreen()
         .build()?;
 
-    let mut window_menu = SubmenuBuilder::new(app, "Window")
+    let window_menu = SubmenuBuilder::new(app, "Window")
         .minimize()
         .maximize()
-        .separator();
-    for number in 1..=9 {
-        window_menu = window_menu.item(&renderer_item(
-            app,
-            &format!("show-document-{number}"),
-            &format!("Show Document {number}"),
-            &format!("CmdOrCtrl+{number}"),
-        )?);
-    }
-    let window_menu = window_menu
         .separator()
         .bring_all_to_front()
         .build()?;

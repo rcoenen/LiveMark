@@ -669,6 +669,7 @@ body {
   min-width: 0;
   padding-bottom: 80px;
   outline: none;
+  zoom: var(--text-zoom, 1);
 }
 
 /* Only the document is selectable, so Select All (⌘A) and copy never pick up UI text */

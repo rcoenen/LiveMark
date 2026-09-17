@@ -41,6 +41,10 @@ const MARGIN_COLUMN_QUERY = '(min-width: 1141px)';
 const RECENT_RELOADS = 3;
 const THEME_KEY = 'livemark-theme';
 const SETTINGS_KEY = 'livemark-reload-settings';
+const TEXT_ZOOM_KEY = 'livemark-text-zoom';
+const TEXT_ZOOM_STEP = 10;
+const TEXT_ZOOM_MIN = 50;
+const TEXT_ZOOM_MAX = 300;
 const CLOSE_ICON = '<svg width="11" height="11" viewBox="0 0 15 15" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M4 4l7 7M11 4l-7 7"></path></svg>';
 
 const turndown = new TurndownService({ headingStyle: 'atx', codeBlockStyle: 'fenced' });
@@ -1027,12 +1031,30 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   byId('find-close-btn').addEventListener('click', closeFind);
 
+  // Text zoom scales the document only; the rail, margin column and measure keep their size.
+  let textZoom = Number(localStorage.getItem(TEXT_ZOOM_KEY)) || 100;
+
+  function setTextZoom(percent: number, announce: boolean): void {
+    textZoom = Math.min(TEXT_ZOOM_MAX, Math.max(TEXT_ZOOM_MIN, Math.round(percent / TEXT_ZOOM_STEP) * TEXT_ZOOM_STEP));
+    document.documentElement.style.setProperty('--text-zoom', String(textZoom / 100));
+    localStorage.setItem(TEXT_ZOOM_KEY, String(textZoom));
+    if (announce) showToast(t('toast.textZoom', { percent: textZoom }), '', 1200, null);
+  }
+
+  setTextZoom(textZoom, false);
+
   function runCommand(command: string): void {
     const documentState = getActiveDocument();
     const showDocument = /^show-document-(\d)$/.exec(command);
     if (showDocument) {
       const documentId = visualOrder()[Number(showDocument[1]) - 1];
       if (documentId) requestDocumentActivation(documentId);
+    } else if (command === 'text-zoom-in') {
+      setTextZoom(textZoom + TEXT_ZOOM_STEP, true);
+    } else if (command === 'text-zoom-out') {
+      setTextZoom(textZoom - TEXT_ZOOM_STEP, true);
+    } else if (command === 'text-zoom-reset') {
+      setTextZoom(100, true);
     } else if (command === 'go-to-file') {
       openPalette();
     } else if (command === 'find') {
@@ -1057,8 +1079,16 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!event.metaKey && !event.ctrlKey) return;
     const key = event.key.toLowerCase();
     let command: string | undefined;
-    if (event.shiftKey) {
+    if (key === '+') {
+      command = 'text-zoom-in';
+    } else if (event.shiftKey) {
       command = key === 'n' ? 'next-change' : key === 'p' ? 'toggle-pause' : undefined;
+    } else if (key === '=' || key === '+') {
+      command = 'text-zoom-in';
+    } else if (key === '-') {
+      command = 'text-zoom-out';
+    } else if (key === '0') {
+      command = 'text-zoom-reset';
     } else if (key === 'p') {
       command = 'go-to-file';
     } else if (key === 'f') {
