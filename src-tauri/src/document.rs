@@ -95,6 +95,20 @@ impl DocumentRegistry {
         true
     }
 
+    /// Puts `document_id` at the tab position of `anchor_id`, which a relocated document takes over.
+    pub fn move_before(&mut self, document_id: &str, anchor_id: &str) {
+        let Some(from) = self.order.iter().position(|id| id == document_id) else {
+            return;
+        };
+        let moved = self.order.remove(from);
+        let to = self
+            .order
+            .iter()
+            .position(|id| id == anchor_id)
+            .unwrap_or(self.order.len());
+        self.order.insert(to, moved);
+    }
+
     pub fn snapshots(&self) -> Vec<DocumentSnapshot> {
         self.order
             .iter()
@@ -171,9 +185,34 @@ pub fn resolve_document_path(input: &str, cwd: &Path) -> Result<PathBuf, String>
     Ok(canonical_path)
 }
 
+/// Markdown files that sit next to open documents, for the Go to File palette. Not recursive.
+pub fn list_markdown_files(directories: &[PathBuf]) -> Vec<String> {
+    let mut files = directories
+        .iter()
+        .filter_map(|directory| fs::read_dir(directory).ok())
+        .flat_map(|entries| entries.filter_map(Result::ok))
+        .map(|entry| entry.path())
+        .filter(|path| {
+            path.extension()
+                .and_then(|extension| extension.to_str())
+                .map(str::to_ascii_lowercase)
+                .is_some_and(|extension| extension == "md" || extension == "markdown")
+                && path.is_file()
+        })
+        .map(|path| path.to_string_lossy().into_owned())
+        .collect::<Vec<_>>();
+    files.sort();
+    files.dedup();
+    files
+}
+
 pub fn load_snapshot(path: &Path) -> Result<DocumentSnapshot, String> {
     let content = fs::read_to_string(path)
         .map_err(|error| format!("could not read {} as UTF-8: {error}", path.display()))?;
+    let content = content
+        .strip_prefix('\u{feff}')
+        .map(str::to_owned)
+        .unwrap_or(content);
     let metadata = fs::metadata(path)
         .map_err(|error| format!("could not inspect {}: {error}", path.display()))?;
     let modified = metadata.modified().map_err(|error| {
@@ -198,9 +237,12 @@ pub fn load_snapshot(path: &Path) -> Result<DocumentSnapshot, String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{DocumentRegistry, DocumentSnapshot, load_snapshot, resolve_document_path};
+    use super::{
+        DocumentRegistry, DocumentSnapshot, list_markdown_files, load_snapshot, resolve_document_path,
+    };
     use std::fs;
     use std::path::PathBuf;
+    use std::sync::atomic::{AtomicUsize, Ordering};
     use std::time::{SystemTime, UNIX_EPOCH};
 
     fn snapshot(id: &str, content: &str) -> DocumentSnapshot {
@@ -212,12 +254,14 @@ mod tests {
         }
     }
 
+    static NEXT_DIRECTORY: AtomicUsize = AtomicUsize::new(0);
+
     fn temporary_directory() -> PathBuf {
         let unique = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .expect("clock should be after epoch")
             .as_nanos();
-        let directory = std::env::temp_dir().join(format!("livemark-tests-{unique}"));
+        let directory = std::env::temp_dir().join(format!("livemark-tests-{}-{unique}-{}", std::process::id(), NEXT_DIRECTORY.fetch_add(1, Ordering::Relaxed)));
         fs::create_dir_all(&directory).expect("temporary directory should be created");
         directory
     }
@@ -241,6 +285,19 @@ mod tests {
                 .collect::<Vec<_>>(),
             vec!["/a.md", "/c.md"]
         );
+    }
+
+    #[test]
+    fn relocated_document_takes_over_the_tab_position() {
+        let mut registry = DocumentRegistry::default();
+        registry.insert(PathBuf::from("/a.md"), snapshot("/a.md", "a"));
+        registry.insert(PathBuf::from("/b.md"), snapshot("/b.md", "b"));
+        registry.insert(PathBuf::from("/moved.md"), snapshot("/moved.md", "a"));
+
+        registry.move_before("/moved.md", "/a.md");
+        registry.close("/a.md").expect("document should close");
+
+        assert_eq!(registry.ids(), vec!["/moved.md".to_owned(), "/b.md".to_owned()]);
     }
 
     #[test]
@@ -278,6 +335,38 @@ mod tests {
             vec!["/a.md", "/b.md"]
         );
         assert!(registry.ids_for_event_paths(&[]).is_empty());
+    }
+
+    #[test]
+    fn sibling_listing_is_flat_and_limited_to_markdown() {
+        let directory = temporary_directory();
+        fs::create_dir_all(directory.join("nested")).expect("nested directory should be created");
+        for name in ["b.md", "a.markdown", "notes.txt", "image.png", "nested/deep.md"] {
+            fs::write(directory.join(name), "x").expect("file should be written");
+        }
+
+        let files = list_markdown_files(&[directory.clone(), directory.join("does-not-exist")]);
+
+        assert_eq!(
+            files,
+            vec![
+                directory.join("a.markdown").to_string_lossy().into_owned(),
+                directory.join("b.md").to_string_lossy().into_owned(),
+            ]
+        );
+        fs::remove_dir_all(directory).expect("temporary directory should be removed");
+    }
+
+    #[test]
+    fn byte_order_mark_is_stripped_from_loaded_content() {
+        let directory = temporary_directory();
+        let path = directory.join("bom.md");
+        fs::write(&path, "\u{feff}# Title").expect("document should be written");
+
+        let snapshot = load_snapshot(&path).expect("document should load");
+
+        assert_eq!(snapshot.content, "# Title");
+        fs::remove_dir_all(directory).expect("temporary directory should be removed");
     }
 
     #[test]

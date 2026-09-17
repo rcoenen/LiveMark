@@ -1,27 +1,35 @@
 mod document;
+mod links;
 mod menu;
 
-use crate::document::{DocumentRegistry, DocumentSnapshot, load_snapshot, resolve_document_path};
+use crate::document::{
+    DocumentRegistry, DocumentSnapshot, list_markdown_files, load_snapshot, resolve_document_path,
+};
+use crate::links::{LinkTarget, classify_link, resolve_image_path};
 use crate::menu::{
     MENU_CLOSE_TAB, MENU_CLOSE_WINDOW, MENU_FORCE_RELOAD, MENU_INSTALL_CLI, MENU_OPEN, MENU_RELOAD,
-    MENU_RESET_ZOOM, MENU_TOGGLE_DEVTOOLS, MENU_ZOOM_IN, MENU_ZOOM_OUT, build_menu,
+    MENU_TOGGLE_DEVTOOLS, RENDERER_COMMAND_PREFIX, build_menu,
 };
 use base64::Engine;
 use notify::{Event, RecommendedWatcher, RecursiveMode, Watcher};
 use serde::Serialize;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::Mutex;
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, UNIX_EPOCH};
 use tauri::menu::MenuEvent;
-use tauri::{AppHandle, Emitter, Manager, RunEvent, State, Wry};
+use tauri::{AppHandle, Emitter, Manager, RunEvent, State, WebviewUrl, WebviewWindowBuilder, Wry};
 use tauri_plugin_dialog::{DialogExt, MessageDialogKind};
+use tauri_plugin_opener::OpenerExt;
 
 const MAIN_WINDOW_LABEL: &str = "main";
-const WATCH_STABILITY_DELAY: Duration = Duration::from_millis(120);
+// Bursts of saves are coalesced into one reload.
+const WATCH_STABILITY_DELAY: Duration = Duration::from_millis(180);
+// Editors that save by replacing the file leave a short gap in which it does not exist.
+const MISSING_RETRY_DELAY: Duration = Duration::from_millis(400);
 const CLI_INSTALL_PATH: &str = "/usr/local/bin/livemark";
 
 #[derive(Default)]
@@ -29,12 +37,13 @@ struct RuntimeData {
     registry: DocumentRegistry,
     watched_directories: HashMap<PathBuf, usize>,
     refresh_generations: HashMap<String, u64>,
+    /// Documents whose file could not be read at the last refresh.
+    missing: HashSet<String>,
 }
 
 struct RuntimeState {
     data: Mutex<RuntimeData>,
     watcher: Mutex<RecommendedWatcher>,
-    zoom: Mutex<f64>,
 }
 
 #[derive(Default)]
@@ -45,12 +54,34 @@ struct PendingOpenPaths(Mutex<Vec<String>>);
 struct BootstrapState {
     documents: Vec<DocumentSnapshot>,
     active_document_id: Option<String>,
+    missing_document_ids: Vec<String>,
     version: String,
 }
 
 #[derive(Clone, Serialize)]
 struct DocumentIdPayload {
     id: String,
+}
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct DocumentRelocatedPayload {
+    from_id: String,
+    to_id: String,
+}
+
+#[derive(Clone, Serialize)]
+struct OpenFailedPayload {
+    path: String,
+    error: String,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ResolvedImage {
+    modified: u64,
+    /// Omitted when the caller already holds the image for this modification time.
+    data_url: Option<String>,
 }
 
 fn lock_error(name: &str) -> String {
@@ -83,6 +114,15 @@ fn update_window_title(app: &AppHandle<Wry>, path: Option<&Path>) {
 fn emit_snapshot(app: &AppHandle<Wry>, snapshot: &DocumentSnapshot) {
     if let Err(error) = app.emit_to(MAIN_WINDOW_LABEL, "document-update", snapshot) {
         eprintln!("could not emit document update: {error}");
+    }
+}
+
+fn emit_document_id(app: &AppHandle<Wry>, event: &str, document_id: &str) {
+    let payload = DocumentIdPayload {
+        id: document_id.to_owned(),
+    };
+    if let Err(error) = app.emit_to(MAIN_WINDOW_LABEL, event, payload) {
+        eprintln!("could not emit {event}: {error}");
     }
 }
 
@@ -140,6 +180,8 @@ fn register_paths(app: &AppHandle<Wry>, paths: Vec<String>, cwd: &Path) {
     for path in paths {
         if let Err(error) = register_document(app, &path, cwd) {
             eprintln!("could not open document {path}: {error}");
+            let payload = OpenFailedPayload { path, error };
+            let _ = app.emit_to(MAIN_WINDOW_LABEL, "open-failed", payload);
         }
     }
 }
@@ -227,15 +269,29 @@ fn refresh_document(app: &AppHandle<Wry>, document_id: &str, generation: u64) {
         path
     };
 
-    let snapshot = match load_snapshot(&path) {
+    let snapshot = match load_snapshot(&path).or_else(|_| {
+        thread::sleep(MISSING_RETRY_DELAY);
+        load_snapshot(&path)
+    }) {
         Ok(snapshot) => snapshot,
         Err(error) => {
             eprintln!("could not refresh {}: {error}", path.display());
+            let newly_missing = state
+                .data
+                .lock()
+                .map(|mut data| {
+                    data.refresh_generations.get(document_id).copied() == Some(generation)
+                        && data.missing.insert(document_id.to_owned())
+                })
+                .unwrap_or(false);
+            if newly_missing {
+                emit_document_id(app, "document-missing", document_id);
+            }
             return;
         }
     };
 
-    let changed = {
+    let (changed, restored) = {
         let mut data = match state.data.lock() {
             Ok(data) => data,
             Err(_) => {
@@ -246,9 +302,13 @@ fn refresh_document(app: &AppHandle<Wry>, document_id: &str, generation: u64) {
         if data.refresh_generations.get(document_id).copied() != Some(generation) {
             return;
         }
-        data.registry.update(snapshot.clone())
+        let restored = data.missing.remove(document_id);
+        (data.registry.update(snapshot.clone()), restored)
     };
 
+    if restored {
+        emit_document_id(app, "document-restored", document_id);
+    }
     if changed {
         emit_snapshot(app, &snapshot);
     }
@@ -278,6 +338,7 @@ fn close_document_by_id(app: &AppHandle<Wry>, document_id: &str) -> Result<(), S
             .close(document_id)
             .ok_or_else(|| format!("unknown document id: {document_id}"))?;
         data.refresh_generations.remove(document_id);
+        data.missing.remove(document_id);
 
         let parent = outcome.closed_path.parent().map(Path::to_owned);
         let directory_to_unwatch = parent.and_then(|parent| {
@@ -367,6 +428,7 @@ fn bootstrap(
     Ok(BootstrapState {
         documents: data.registry.snapshots(),
         active_document_id: data.registry.active_id(),
+        missing_document_ids: data.missing.iter().cloned().collect(),
         version: app.package_info().version.to_string(),
     })
 }
@@ -395,7 +457,8 @@ fn read_local_image(
     app: &AppHandle<Wry>,
     document_id: &str,
     source: &str,
-) -> Result<String, String> {
+    known_modified: Option<u64>,
+) -> Result<ResolvedImage, String> {
     let document_path = {
         let state = app.state::<RuntimeState>();
         let data = state.data.lock().map_err(|_| lock_error("runtime data"))?;
@@ -404,47 +467,31 @@ fn read_local_image(
             .ok_or_else(|| "document is not open".to_owned())?
     };
 
-    let source_without_suffix = source.split(['?', '#']).next().unwrap_or_default();
-    if source_without_suffix.is_empty()
-        || source_without_suffix.starts_with("http:")
-        || source_without_suffix.starts_with("https:")
-        || source_without_suffix.starts_with("data:")
-    {
-        return Err("unsupported asset source".to_owned());
-    }
-
-    let supplied_path = if source_without_suffix.starts_with("file://") {
-        let file_url = match tauri::Url::parse(source_without_suffix) {
-            Ok(url) => url,
-            Err(_) => return Err("invalid file URL".to_owned()),
-        };
-        match file_url.to_file_path() {
-            Ok(path) => path,
-            Err(_) => return Err("invalid file URL".to_owned()),
-        }
-    } else {
-        PathBuf::from(source_without_suffix)
-    };
-    let candidate = if supplied_path.is_absolute() {
-        supplied_path
-    } else {
-        document_path
-            .parent()
-            .unwrap_or_else(|| Path::new("/"))
-            .join(supplied_path)
-    };
-    let canonical = fs::canonicalize(&candidate).map_err(|_| "asset not found".to_owned())?;
-    if !canonical.is_file() {
-        return Err("asset is not a file".to_owned());
-    }
-
+    let canonical = resolve_image_path(&document_path, source)?;
     let mime = mime_guess::from_path(&canonical).first_or_octet_stream();
     if mime.type_() != mime_guess::mime::IMAGE {
         return Err("asset is not an image".to_owned());
     }
+
+    let modified = fs::metadata(&canonical)
+        .and_then(|metadata| metadata.modified())
+        .ok()
+        .and_then(|modified| modified.duration_since(UNIX_EPOCH).ok())
+        .map(|duration| duration.as_millis() as u64)
+        .unwrap_or_default();
+    if known_modified == Some(modified) {
+        return Ok(ResolvedImage {
+            modified,
+            data_url: None,
+        });
+    }
+
     let bytes = fs::read(&canonical).map_err(|_| "asset could not be read".to_owned())?;
     let encoded = base64::engine::general_purpose::STANDARD.encode(bytes);
-    Ok(format!("data:{};base64,{encoded}", mime.essence_str()))
+    Ok(ResolvedImage {
+        modified,
+        data_url: Some(format!("data:{};base64,{encoded}", mime.essence_str())),
+    })
 }
 
 #[tauri::command]
@@ -452,8 +499,121 @@ fn resolve_local_image(
     app: AppHandle<Wry>,
     document_id: String,
     source: String,
-) -> Result<String, String> {
-    read_local_image(&app, &document_id, &source)
+    known_modified: Option<u64>,
+) -> Result<ResolvedImage, String> {
+    read_local_image(&app, &document_id, &source, known_modified)
+}
+
+/// Points an open document at a new path chosen by the user, keeping its place in the rail.
+fn relocate_document_to(app: &AppHandle<Wry>, document_id: &str, new_path: &Path) -> Result<(), String> {
+    let new_id = resolve_document_path(&new_path.to_string_lossy(), &current_directory())?
+        .to_string_lossy()
+        .into_owned();
+    if new_id == document_id {
+        return Ok(());
+    }
+    {
+        let state = app.state::<RuntimeState>();
+        let data = state.data.lock().map_err(|_| lock_error("runtime data"))?;
+        if !data.registry.contains(document_id) {
+            return Err(format!("unknown document id: {document_id}"));
+        }
+        if data.registry.contains(&new_id) {
+            return Err("that file is already open".to_owned());
+        }
+    }
+
+    register_document(app, &new_id, &current_directory())?;
+    {
+        let state = app.state::<RuntimeState>();
+        let mut data = state.data.lock().map_err(|_| lock_error("runtime data"))?;
+        data.registry.move_before(&new_id, document_id);
+    }
+    let payload = DocumentRelocatedPayload {
+        from_id: document_id.to_owned(),
+        to_id: new_id.clone(),
+    };
+    if let Err(error) = app.emit_to(MAIN_WINDOW_LABEL, "document-relocated", payload) {
+        eprintln!("could not emit document relocation: {error}");
+    }
+    close_document_by_id(app, document_id)?;
+    activate_document_by_id(app, &new_id)
+}
+
+#[tauri::command]
+fn list_sibling_documents(state: State<'_, RuntimeState>) -> Result<Vec<String>, String> {
+    let directories = {
+        let data = state.data.lock().map_err(|_| lock_error("runtime data"))?;
+        data.watched_directories.keys().cloned().collect::<Vec<_>>()
+    };
+    Ok(list_markdown_files(&directories))
+}
+
+#[tauri::command]
+fn locate_document(app: AppHandle<Wry>, document_id: String) {
+    let app_handle = app.clone();
+    app.dialog()
+        .file()
+        .set_title("Locate Document")
+        .add_filter("Markdown", &["md", "markdown", "txt"])
+        .pick_file(move |selection| {
+            let Some(path) = selection.and_then(|file| file.into_path().ok()) else {
+                return;
+            };
+            if let Err(error) = relocate_document_to(&app_handle, &document_id, &path) {
+                let payload = OpenFailedPayload {
+                    path: path.to_string_lossy().into_owned(),
+                    error,
+                };
+                let _ = app_handle.emit_to(MAIN_WINDOW_LABEL, "open-failed", payload);
+            }
+        });
+}
+
+#[tauri::command]
+fn open_link(app: AppHandle<Wry>, document_id: String, href: String) -> Result<(), String> {
+    match classify_link(&href) {
+        LinkTarget::External(url) => app
+            .opener()
+            .open_url(url, None::<&str>)
+            .map_err(|error| format!("could not open link: {error}")),
+        LinkTarget::Local(path) => {
+            let document_directory = {
+                let state = app.state::<RuntimeState>();
+                let data = state.data.lock().map_err(|_| lock_error("runtime data"))?;
+                data.registry
+                    .path(&document_id)
+                    .and_then(|path| path.parent().map(Path::to_owned))
+                    .ok_or_else(|| "document is not open".to_owned())?
+            };
+            register_document(&app, &path.to_string_lossy(), &document_directory)
+        }
+        LinkTarget::Ignored => Err("unsupported link".to_owned()),
+    }
+}
+
+/// The webview only ever shows the bundled app; rendered documents must not be able to replace it.
+/// `dev_origin` is the local server `tauri dev` serves the frontend from.
+fn is_app_navigation(url: &tauri::Url, dev_origin: Option<&tauri::Url>) -> bool {
+    url.scheme() == "tauri"
+        || url.host_str() == Some("tauri.localhost")
+        || url.as_str() == "about:blank"
+        || dev_origin.is_some_and(|dev| dev.origin() == url.origin())
+}
+
+fn create_main_window(app: &tauri::App<Wry>) -> tauri::Result<()> {
+    let dev_origin = app.config().build.dev_url.clone();
+    let builder = WebviewWindowBuilder::new(app, MAIN_WINDOW_LABEL, WebviewUrl::App("index.html".into()))
+        .title("LiveMark")
+        .inner_size(1240.0, 760.0)
+        .min_inner_size(560.0, 300.0)
+        .on_navigation(move |url| is_app_navigation(url, dev_origin.as_ref()));
+    #[cfg(target_os = "macos")]
+    let builder = builder
+        .title_bar_style(tauri::TitleBarStyle::Overlay)
+        .hidden_title(true);
+    builder.build()?;
+    Ok(())
 }
 
 fn cli_source_path(app: &AppHandle<Wry>) -> Result<PathBuf, String> {
@@ -586,21 +746,11 @@ fn handle_menu_event(app: &AppHandle<Wry>, event: MenuEvent) {
                 }
             }
         }
-        MENU_RESET_ZOOM | MENU_ZOOM_IN | MENU_ZOOM_OUT => {
-            let state = app.state::<RuntimeState>();
-            if let Ok(mut zoom) = state.zoom.lock() {
-                *zoom = match event.id().as_ref() {
-                    MENU_RESET_ZOOM => 1.0,
-                    MENU_ZOOM_IN => (*zoom + 0.1).min(3.0),
-                    MENU_ZOOM_OUT => (*zoom - 0.1).max(0.5),
-                    _ => *zoom,
-                };
-                if let Some(window) = app.get_webview_window(MAIN_WINDOW_LABEL) {
-                    let _ = window.set_zoom(*zoom);
-                }
+        id => {
+            if let Some(command) = id.strip_prefix(RENDERER_COMMAND_PREFIX) {
+                let _ = app.emit_to(MAIN_WINDOW_LABEL, "menu-command", command);
             }
         }
-        _ => {}
     }
 }
 
@@ -613,13 +763,17 @@ pub fn run() {
             show_main_window(app);
         }))
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![
             bootstrap,
             open_file_dialog,
             open_file_paths,
             activate_document,
             close_document,
-            resolve_local_image
+            resolve_local_image,
+            open_link,
+            locate_document,
+            list_sibling_documents
         ])
         .on_menu_event(handle_menu_event)
         .on_window_event(|window, event| {
@@ -641,9 +795,9 @@ pub fn run() {
             app.manage(RuntimeState {
                 data: Mutex::new(RuntimeData::default()),
                 watcher: Mutex::new(watcher),
-                zoom: Mutex::new(1.0),
             });
             app.set_menu(build_menu(app)?)?;
+            create_main_window(app)?;
 
             let pending_paths = app
                 .state::<PendingOpenPaths>()
@@ -682,8 +836,21 @@ pub fn run() {
 
 #[cfg(test)]
 mod tests {
-    use super::cli_document_paths;
+    use super::{cli_document_paths, is_app_navigation};
     use std::path::Path;
+
+    #[test]
+    fn only_the_app_origin_may_be_navigated_to() {
+        let url = |value: &str| tauri::Url::parse(value).expect("test URL should parse");
+        let dev = url("http://127.0.0.1:1430/");
+
+        assert!(is_app_navigation(&url("tauri://localhost/index.html"), None));
+        assert!(is_app_navigation(&url("http://tauri.localhost/"), None));
+        assert!(is_app_navigation(&url("http://127.0.0.1:1430/index.html"), Some(&dev)));
+        assert!(!is_app_navigation(&url("http://127.0.0.1:1430/index.html"), None));
+        assert!(!is_app_navigation(&url("https://example.com/"), Some(&dev)));
+        assert!(!is_app_navigation(&url("file:///etc/passwd"), Some(&dev)));
+    }
 
     #[test]
     fn cli_paths_filter_options_and_resolve_relative_inputs() {

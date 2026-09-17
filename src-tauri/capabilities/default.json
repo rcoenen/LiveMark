@@ -3,5 +3,5 @@
   "identifier": "main-capability",
   "description": "The main LiveMark viewer can use core window and event APIs only.",
   "windows": ["main"],
-  "permissions": ["core:default"]
+  "permissions": ["core:default", "core:window:allow-start-dragging"]
 }
