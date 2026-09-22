@@ -12,15 +12,16 @@ cask "livemark" do
     strategy :github_latest
   end
 
-  depends_on macos: :big_sur
   depends_on arch: :arm64
+  depends_on :macos
 
   app "LiveMark.app"
   binary "#{appdir}/LiveMark.app/Contents/Resources/bin/livemark"
 
   # Ad-hoc signed, not notarized. Strip quarantine so Gatekeeper does not block launch.
-  postflight do
-    system_command "/usr/bin/xattr", args: ["-cr", "#{appdir}/LiveMark.app"]
+  postflight_steps do
+    run "/usr/bin/xattr", args:           ["-cr", "{{appdir}}/LiveMark.app"],
+                          writable_paths: ["{{appdir}}/LiveMark.app"]
   end
 
   zap trash: [
