@@ -54,6 +54,10 @@ describe('renderMarkdown structure', () => {
 
     expect(blockKey(listBefore)).toBe(blockKey(listAfter));
     expect(blockKey(tableBefore)).not.toBe(blockKey(tableAfter));
+    expect(tableAfter.classList.contains('table-scroll')).toBe(true);
+    expect(tableAfter.querySelector(':scope > table')).not.toBeNull();
+    const widths = Array.from(tableAfter.querySelectorAll('col'), (col) => Number.parseFloat((col as HTMLElement).style.width));
+    expect(widths).toEqual([50, 50]);
     expect(changeableItems(tableAfter)).toHaveLength(2);
     expect(changeableItems(listAfter)).toHaveLength(2);
   });

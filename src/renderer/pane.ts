@@ -291,7 +291,8 @@ export class DocumentPane {
       candidate.setAttribute('data-lm-target', '');
       if (!visible) continue;
       candidate.classList.add('lm-changed');
-      if (!labelled && candidate.parentElement === this.content && candidate.tagName !== 'PRE' && candidate.tagName !== 'TABLE') {
+      const isTable = candidate.tagName === 'TABLE' || candidate.classList.contains('table-scroll');
+      if (!labelled && candidate.parentElement === this.content && candidate.tagName !== 'PRE' && !isTable) {
         candidate.setAttribute('data-lm-label', request.label);
         labelled = true;
       }

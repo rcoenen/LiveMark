@@ -59,7 +59,49 @@ export function renderMarkdown(content: string): HTMLElement {
     usedIds.add(id);
     heading.id = id;
   }
+  // Keep every table inside the reading measure. Column widths share that width.
+  for (const table of Array.from(container.querySelectorAll('table'))) {
+    if (table.parentElement?.classList.contains('table-scroll')) continue;
+    if (table instanceof HTMLTableElement) balanceColumns(table);
+    const scroll = document.createElement('div');
+    scroll.className = 'table-scroll';
+    table.replaceWith(scroll);
+    scroll.appendChild(table);
+  }
   return container;
+}
+
+// Fixed layout needs explicit columns. Each column is sized from its longest word so
+// ordinary words stay intact, while one huge token cannot take the whole measure.
+const CHAR_PX = 8;
+const CELL_PAD = 28;
+const WORD_CAP = 24;
+
+function columnWeight(text: string): number {
+  const longest = text.split(/\s+/).reduce((max, word) => Math.max(max, word.length), 0);
+  return CELL_PAD + Math.min(Math.max(longest, 3), WORD_CAP) * CHAR_PX;
+}
+
+function balanceColumns(table: HTMLTableElement): void {
+  const rows = Array.from(table.rows);
+  const count = rows.reduce((widest, row) => Math.max(widest, row.cells.length), 0);
+  if (count < 2) return;
+  if (rows.some((row) => Array.from(row.cells).some((cell) => cell.colSpan > 1 || cell.rowSpan > 1))) return;
+
+  const weights = Array.from({ length: count }, () => columnWeight(''));
+  for (const row of rows) {
+    for (let index = 0; index < count; index += 1) {
+      weights[index] = Math.max(weights[index], columnWeight(row.cells[index]?.textContent?.trim() ?? ''));
+    }
+  }
+  const total = weights.reduce((sum, weight) => sum + weight, 0);
+  const group = document.createElement('colgroup');
+  for (const weight of weights) {
+    const col = document.createElement('col');
+    col.style.width = `${(weight / total) * 100}%`;
+    group.appendChild(col);
+  }
+  table.prepend(group);
 }
 
 // Compact content fingerprint (cyrb53) so block identity does not mean keeping every block's HTML around twice.
@@ -77,9 +119,16 @@ export function blockKey(element: Element): string {
   return (4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(36);
 }
 
+function tableElement(block: Element): Element | null {
+  if (block.tagName === 'TABLE') return block;
+  if (block.classList.contains('table-scroll')) return block.querySelector(':scope > table');
+  return null;
+}
+
 /** Table rows and list items can be marked individually when only some of them changed. */
 export function changeableItems(block: Element): Element[] {
-  if (block.tagName === 'TABLE') return Array.from(block.querySelectorAll(':scope > thead > tr, :scope > tbody > tr'));
+  const table = tableElement(block);
+  if (table) return Array.from(table.querySelectorAll(':scope > thead > tr, :scope > tbody > tr'));
   if (block.tagName === 'UL' || block.tagName === 'OL') return Array.from(block.querySelectorAll(':scope > li'));
   return [];
 }

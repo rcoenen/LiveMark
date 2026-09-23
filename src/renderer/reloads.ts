@@ -18,8 +18,9 @@ export interface ReloadEntry {
 }
 
 function blockNoun(element: Element): string {
-  const key = `reload.noun.${element.tagName}`;
-  return t((['P', 'TABLE', 'UL', 'OL', 'PRE', 'BLOCKQUOTE', 'TR', 'LI'].includes(element.tagName) ? key : 'reload.noun.other') as StringKey);
+  const tag = element.classList.contains('table-scroll') ? 'TABLE' : element.tagName;
+  const key = `reload.noun.${tag}`;
+  return t((['P', 'TABLE', 'UL', 'OL', 'PRE', 'BLOCKQUOTE', 'TR', 'LI'].includes(tag) ? key : 'reload.noun.other') as StringKey);
 }
 
 export function indexBlocks(container: HTMLElement): BlockIndex {
