@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.2](https://github.com/rcoenen/LiveMark/compare/v1.4.1...v1.4.2) (2026-09-23)
+
+
+### Bug Fixes
+
+* keep tables and paths intact when copying ([d1cb2fe](https://github.com/rcoenen/LiveMark/commit/d1cb2fed83349309601fa8d0a7c6a45e810b4d5e))
+
 ## [1.4.1](https://github.com/rcoenen/LiveMark/compare/v1.4.0...v1.4.1) (2026-09-17)
 
 
