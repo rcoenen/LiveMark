@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.3](https://github.com/rcoenen/LiveMark/compare/v1.4.2...v1.4.3) (2026-09-23)
+
+
+### Bug Fixes
+
+* keep wide tables inside the reading measure ([51dd4be](https://github.com/rcoenen/LiveMark/commit/51dd4bedc69f00407ceb3017cd6b731c985f6726))
+
 ## [1.4.2](https://github.com/rcoenen/LiveMark/compare/v1.4.1...v1.4.2) (2026-09-23)
 
 
