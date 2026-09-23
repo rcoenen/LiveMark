@@ -54,6 +54,7 @@ export interface LiveMarkBridge {
   resolveLocalImage(documentId: string, source: string, knownModified?: number): Promise<ResolvedImage>;
   openLink(documentId: string, href: string): Promise<void>;
   locateDocument(documentId: string): Promise<void>;
+  openContainingFolder(documentId: string): Promise<void>;
   listSiblingDocuments(): Promise<string[]>;
 }
 
@@ -94,6 +95,7 @@ export function installLiveMarkBridge(): LiveMarkBridge {
       invoke<ResolvedImage>('resolve_local_image', { documentId, source, knownModified }),
     openLink: (documentId, href) => invoke<void>('open_link', { documentId, href }),
     locateDocument: (documentId) => invoke<void>('locate_document', { documentId }),
+    openContainingFolder: (documentId) => invoke<void>('open_containing_folder', { documentId }),
     listSiblingDocuments: () => invoke<string[]>('list_sibling_documents'),
   };
 

@@ -571,6 +571,24 @@ fn locate_document(app: AppHandle<Wry>, document_id: String) {
 }
 
 #[tauri::command]
+fn open_containing_folder(app: AppHandle<Wry>, document_id: String) -> Result<(), String> {
+    let path = {
+        let state = app.state::<RuntimeState>();
+        let data = state.data.lock().map_err(|_| lock_error("runtime data"))?;
+        data.registry
+            .path(&document_id)
+            .ok_or_else(|| "document is not open".to_owned())?
+    };
+    let folder = path
+        .parent()
+        .filter(|folder| !folder.as_os_str().is_empty())
+        .ok_or_else(|| "document has no folder".to_owned())?;
+    app.opener()
+        .open_path(folder.to_string_lossy().as_ref(), None::<&str>)
+        .map_err(|error| format!("could not open folder: {error}"))
+}
+
+#[tauri::command]
 fn open_link(app: AppHandle<Wry>, document_id: String, href: String) -> Result<(), String> {
     match classify_link(&href) {
         LinkTarget::External(url) => app
@@ -773,6 +791,7 @@ pub fn run() {
             resolve_local_image,
             open_link,
             locate_document,
+            open_containing_folder,
             list_sibling_documents
         ])
         .on_menu_event(handle_menu_event)

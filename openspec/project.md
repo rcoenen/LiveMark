@@ -57,7 +57,7 @@ Rust unit tests cover path validation and document registry behavior. CI runs Ty
 
 ## Domain Context
 - LiveMark is a **read-only viewer** — it never writes to Markdown files
-- The copy override (Cmd+C always copies raw Markdown source) is a deliberate UX decision
+- The copy override (Cmd+C copies Markdown source, not rendered HTML) is a deliberate UX decision. Table separator rows are normalized to `| :---- |` so Google Docs Paste from Markdown keeps the table
 - File stability: parent-directory watching plus generation-based debounce handles both in-place writes and atomic file replacement
 - The `livemark` CLI is a POSIX shell script that resolves the `.app` bundle path and uses `open -a LiveMark.app <file>`
 - CLI install uses `osascript` for privilege escalation when symlinking to `/usr/local/bin`

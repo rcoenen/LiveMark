@@ -1,4 +1,4 @@
-import TurndownService from 'turndown';
+import { markdownForCopy, selectionCoversElement } from './copy-markdown';
 import { renderMarkdown } from './markdown';
 import { DOCUMENT_DRAG_TYPE, DocumentPane, type PaneHost } from './pane';
 import { installLiveMarkBridge, type DocumentSnapshot } from './platform';
@@ -46,17 +46,6 @@ const TEXT_ZOOM_STEP = 10;
 const TEXT_ZOOM_MIN = 50;
 const TEXT_ZOOM_MAX = 300;
 const CLOSE_ICON = '<svg width="11" height="11" viewBox="0 0 15 15" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M4 4l7 7M11 4l-7 7"></path></svg>';
-
-const turndown = new TurndownService({ headingStyle: 'atx', codeBlockStyle: 'fenced' });
-// Copied Markdown refers to local images by their original path, not by the data URL they are displayed with.
-turndown.addRule('localImage', {
-  filter: (node) => node.nodeName === 'IMG' && node.hasAttribute('data-livemark-source'),
-  replacement: (_content, node) => {
-    const image = node as HTMLElement;
-    const source = image.getAttribute('data-livemark-source') ?? '';
-    return `![${image.getAttribute('alt') ?? ''}](${/\s/.test(source) ? `<${source}>` : source})`;
-  },
-});
 
 function formatDate(date: number): string {
   const d = new Date(date);
@@ -143,6 +132,12 @@ document.addEventListener('DOMContentLoaded', () => {
   const paletteEl = byId('palette');
   const paletteInput = byId<HTMLInputElement>('palette-input');
   const paletteListEl = byId('palette-list');
+  const tabMenuEl = byId('tab-menu');
+  const tabMenuCopyBtn = byId<HTMLButtonElement>('tab-menu-copy-path');
+  const tabMenuFolderBtn = byId<HTMLButtonElement>('tab-menu-open-folder');
+  let tabMenuDocumentId: string | null = null;
+  /** One-shot plain text for the next copy event, so a path copy is not replaced by document Markdown. */
+  let plainClipboard: string | null = null;
   const toastEl = byId('update-notification');
   const toastTitleEl = byId('toast-title');
   const toastDetailEl = byId('toast-detail');
@@ -539,6 +534,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const tabItem = document.createElement('div');
         tabItem.className = `document-tab${isActive ? ' is-active' : ''}${documentState.missing ? ' is-missing' : ''}`;
         tabItem.draggable = true;
+        tabItem.addEventListener('contextmenu', (event) => {
+          event.preventDefault();
+          openTabMenu(documentState.id, event.clientX, event.clientY);
+        });
         tabItem.addEventListener('dragstart', (event) => {
           draggedDocumentId = documentState.id;
           event.dataTransfer?.setData(DOCUMENT_DRAG_TYPE, documentState.id);
@@ -1074,6 +1073,7 @@ document.addEventListener('DOMContentLoaded', () => {
   document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape') {
       setPopoverOpen(false);
+      closeTabMenu();
       return;
     }
     if (!event.metaKey && !event.ctrlKey) return;
@@ -1107,9 +1107,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const target = event.target as Node;
     if (!popoverEl.hidden && !popoverEl.contains(target) && !allReloadsBtn.contains(target)) setPopoverOpen(false);
     if (!paletteEl.hidden && !paletteEl.contains(target)) closePalette();
+    if (!tabMenuEl.hidden && !tabMenuEl.contains(target)) closeTabMenu();
   });
 
-  window.addEventListener('resize', () => setPopoverOpen(false));
+  window.addEventListener('resize', () => {
+    setPopoverOpen(false);
+    closeTabMenu();
+  });
   marginColumnMedia.addEventListener('change', () => {
     setPopoverOpen(false);
     placeLiveCard();
@@ -1164,25 +1168,99 @@ document.addEventListener('DOMContentLoaded', () => {
     localStorage.setItem(THEME_KEY, dark ? 'dark' : 'light');
   });
 
+  function closeTabMenu(): void {
+    tabMenuEl.hidden = true;
+    tabMenuDocumentId = null;
+  }
+
+  function openTabMenu(documentId: string, x: number, y: number): void {
+    tabMenuDocumentId = documentId;
+    tabMenuEl.hidden = false;
+    tabMenuEl.style.left = `${x}px`;
+    tabMenuEl.style.top = `${y}px`;
+    const rect = tabMenuEl.getBoundingClientRect();
+    const left = Math.max(8, Math.min(x, window.innerWidth - rect.width - 8));
+    const top = y + rect.height > window.innerHeight - 8 ? Math.max(8, y - rect.height) : y;
+    tabMenuEl.style.left = `${left}px`;
+    tabMenuEl.style.top = `${top}px`;
+  }
+
+  function copyPlainText(text: string, title: string, detail: string): void {
+    plainClipboard = text;
+    document.execCommand('copy');
+    if (plainClipboard === null) {
+      showToast(title, detail, 1600, null);
+      return;
+    }
+    const leftover = plainClipboard;
+    plainClipboard = null;
+    void navigator.clipboard.writeText(leftover).then(
+      () => showToast(title, detail, 1600, null),
+      () => showToast(t('toast.copyFailed'), detail, 3000, null)
+    );
+  }
+
+  tabMenuCopyBtn.addEventListener('click', () => {
+    const documentState = tabMenuDocumentId ? documents.get(tabMenuDocumentId) : null;
+    closeTabMenu();
+    if (!documentState) return;
+    copyPlainText(documentState.path, t('toast.pathCopied'), documentState.path);
+  });
+  tabMenuFolderBtn.addEventListener('click', () => {
+    const documentId = tabMenuDocumentId;
+    closeTabMenu();
+    if (!documentId) return;
+    void livemark.openContainingFolder(documentId).catch(() => {
+      const documentState = documents.get(documentId);
+      showToast(t('toast.folderFailed'), documentState?.path ?? '', 3000, null);
+    });
+  });
+
   document.addEventListener('copy', (event) => {
+    if (plainClipboard !== null) {
+      event.preventDefault();
+      event.clipboardData?.setData('text/plain', plainClipboard);
+      plainClipboard = null;
+      return;
+    }
+    const pathSelection = window.getSelection();
+    const filePathEl = byId('file-path');
+    if (
+      pathSelection &&
+      !pathSelection.isCollapsed &&
+      pathSelection.anchorNode &&
+      pathSelection.focusNode &&
+      filePathEl.contains(pathSelection.anchorNode) &&
+      filePathEl.contains(pathSelection.focusNode)
+    ) {
+      event.preventDefault();
+      const text = pathSelection.toString();
+      event.clipboardData?.setData('text/plain', text);
+      showToast(t('toast.pathCopied'), text, 1600, null);
+      return;
+    }
     if (event.target instanceof HTMLInputElement) return;
     const documentState = getActiveDocument();
     if (!documentState?.content) return;
     event.preventDefault();
 
     const selection = window.getSelection();
-    let textToCopy = documentState.content;
+    let selectionHtml: string | null = null;
+    let coversDocument = false;
     if (selection && !selection.isCollapsed) {
       const range = selection.getRangeAt(0);
       const pane = panes.find((candidate) => candidate.content.contains(range.commonAncestorContainer));
       if (pane) {
-        const temporaryContainer = document.createElement('div');
-        temporaryContainer.appendChild(range.cloneContents());
-        textToCopy = turndown.turndown(temporaryContainer.innerHTML);
+        coversDocument = selectionCoversElement(range, pane.content);
+        if (!coversDocument) {
+          const temporaryContainer = document.createElement('div');
+          temporaryContainer.appendChild(range.cloneContents());
+          selectionHtml = temporaryContainer.innerHTML;
+        }
       }
     }
 
-    event.clipboardData?.setData('text/plain', textToCopy);
+    event.clipboardData?.setData('text/plain', markdownForCopy(documentState.content, selectionHtml, coversDocument));
     showToast(t('toast.copied'), '', 1000, null);
   });
 
