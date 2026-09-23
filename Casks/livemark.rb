@@ -1,6 +1,6 @@
 cask "livemark" do
-  version "1.4.2"
-  sha256 "0be32955d16261ddbbae5b0865e02aeb0c9b3906843c9b2d6dd27a53c2ed942a"
+  version "1.4.3"
+  sha256 "ac26494df16bd9b8f684217eb3c046ff1a4558a296a646f8a98c359a139a63f1"
 
   url "https://github.com/rcoenen/LiveMark/releases/download/v#{version}/LiveMark-#{version}-arm64.dmg"
   name "LiveMark"
