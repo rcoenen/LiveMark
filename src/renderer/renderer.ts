@@ -3,6 +3,7 @@ import { renderMarkdown } from './markdown';
 import { DOCUMENT_DRAG_TYPE, DocumentPane, type PaneHost } from './pane';
 import { installLiveMarkBridge, type DocumentSnapshot } from './platform';
 import { applyStaticStrings, t, tCount } from './strings';
+import { initUpdates } from './updates';
 import { diffReload, fuzzyScore, indexBlocks, isReloadOnScreen, type BlockIndex, type ReloadEntry } from './reloads';
 
 interface OpenDocument extends DocumentSnapshot {
@@ -148,6 +149,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const linksOutEl = byId('links-out');
   const linksOutListEl = byId('links-out-list');
   const themeToggleInput = byId<HTMLInputElement>('theme-toggle-input');
+  const updates = initUpdates();
 
   const documents = new Map<string, OpenDocument>();
   const settings = loadSettings();
@@ -1064,6 +1066,8 @@ document.addEventListener('DOMContentLoaded', () => {
       setSplit(!split);
     } else if (command === 'toggle-pause' && documentState && !documentState.missing) {
       setPaused(documentState, !documentState.paused);
+    } else if (command === 'check-updates') {
+      updates.checkManually();
     }
   }
 

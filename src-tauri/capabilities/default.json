@@ -1,7 +1,13 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "main-capability",
-  "description": "The main LiveMark viewer can use core window and event APIs only.",
+  "description": "The main LiveMark viewer can use core window, event, updater, process, and opener APIs.",
   "windows": ["main"],
-  "permissions": ["core:default", "core:window:allow-start-dragging"]
+  "permissions": [
+    "core:default",
+    "core:window:allow-start-dragging",
+    "updater:default",
+    "process:default",
+    "opener:default"
+  ]
 }

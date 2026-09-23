@@ -37,5 +37,13 @@
     "macOS": {
       "minimumSystemVersion": "11.0"
     }
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEVERERGMURBRjgyQUJDQzEKUldUQnZDcjQydkhkN1VtOW9ZYUtmaGM0MVgyVUxuSE9uenUzdm1OU3dKMjJrVnRwNjhrVVQzS1MK",
+      "endpoints": [
+        "https://github.com/rcoenen/LiveMark/releases/latest/download/latest.json"
+      ]
+    }
   }
 }

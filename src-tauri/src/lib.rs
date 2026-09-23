@@ -1,10 +1,12 @@
 mod document;
+mod install_source;
 mod links;
 mod menu;
 
 use crate::document::{
     DocumentRegistry, DocumentSnapshot, list_markdown_files, load_snapshot, resolve_document_path,
 };
+use crate::install_source::install_source;
 use crate::links::{LinkTarget, classify_link, resolve_image_path};
 use crate::menu::{
     MENU_CLOSE_TAB, MENU_CLOSE_WINDOW, MENU_FORCE_RELOAD, MENU_INSTALL_CLI, MENU_OPEN, MENU_RELOAD,
@@ -782,8 +784,11 @@ pub fn run() {
         }))
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .invoke_handler(tauri::generate_handler![
             bootstrap,
+            install_source,
             open_file_dialog,
             open_file_paths,
             activate_document,

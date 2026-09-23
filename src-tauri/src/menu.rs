@@ -24,11 +24,17 @@ fn renderer_item(
 }
 
 pub fn build_menu(app: &App) -> tauri::Result<Menu<Wry>> {
+    let check_updates = MenuItemBuilder::with_id(
+        format!("{RENDERER_COMMAND_PREFIX}check-updates"),
+        "Check for Updates…",
+    )
+    .build(app)?;
     let install_cli =
         MenuItemBuilder::with_id(MENU_INSTALL_CLI, "Install CLI Command…").build(app)?;
     let app_menu = SubmenuBuilder::new(app, "LiveMark")
         .about(None)
         .separator()
+        .item(&check_updates)
         .item(&install_cli)
         .separator()
         .services()

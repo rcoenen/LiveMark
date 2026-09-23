@@ -122,6 +122,18 @@
     <button id="toast-view-btn" type="button" class="link-button" data-string="toast.view" hidden></button>
   </div>
 
+  <div id="app-update-banner" class="app-update" role="status" hidden>
+    <div class="app-update__text">
+      <span id="app-update-text" class="app-update__title"></span>
+      <span id="app-update-detail" class="app-update__detail"></span>
+    </div>
+    <button id="app-update-action" type="button" class="link-button" hidden></button>
+    <button id="app-update-notes" type="button" class="link-button" data-string="update.releaseNotes" hidden></button>
+    <button id="app-update-dismiss" type="button" class="icon-button" data-string-aria-label="update.dismiss">
+      <svg width="11" height="11" viewBox="0 0 15 15" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M4 4l7 7M11 4l-7 7"></path></svg>
+    </button>
+  </div>
+
   <script src="renderer/renderer.js"></script>
 </body>
 </html>
