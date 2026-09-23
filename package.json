@@ -1,6 +1,6 @@
 {
   "name": "livemark",
-  "version": "1.4.2",
+  "version": "1.4.3",
   "description": "Live-updating Markdown viewer for macOS",
   "scripts": {
     "build:frontend": "rm -rf dist/frontend && mkdir -p dist/frontend/renderer && tsc --noEmit && esbuild src/renderer/renderer.ts --bundle --outfile=dist/frontend/renderer/renderer.js --platform=browser --target=safari13.1 && cp src/renderer/styles.css dist/frontend/renderer/ && cp index.html dist/frontend/",
