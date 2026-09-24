@@ -20,5 +20,5 @@
 
 ## 5. Verification
 - [x] 5.1 `npm test` and `npm run build`.
-- [ ] 5.2 `npm run dist` with signing env vars: `app.tar.gz`, `.sig`, `latest.json` produced and valid (needs the private-key password).
-- [ ] 5.3 Manual on next release: DMG copy one-click updates and relaunches; brew copy shows the brew instruction and does not self-install; "Check for Updates…" reports up-to-date on the current version.
+- [x] 5.2 `npm run dist` with signing env vars: `app.tar.gz`, `.sig`, `latest.json` produced and valid (verified in CI on the v1.5.0 release: assets published, manifest served at the updater endpoint, signature key number matches the embedded pubkey, release app launches).
+- [ ] 5.3 Manual on next release: DMG copy one-click updates and relaunches; brew copy shows the brew instruction and does not self-install (needs a release *after* v1.5.0 to update into); "Check for Updates…" reports up-to-date on the current version.
