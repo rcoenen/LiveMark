@@ -1017,6 +1017,23 @@ document.addEventListener('DOMContentLoaded', () => {
     focusedPane().content.focus({ preventScroll: true });
   }
 
+  // Select All covers the focused pane's document only; app chrome (rail, margin column) stays out of it.
+  function selectAllContent(): void {
+    const active = document.activeElement;
+    if (active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement) {
+      active.select();
+      return;
+    }
+    const pane = focusedPane();
+    if (!pane.documentId) return;
+    const selection = window.getSelection();
+    if (!selection) return;
+    const range = document.createRange();
+    range.selectNodeContents(pane.content);
+    selection.removeAllRanges();
+    selection.addRange(range);
+  }
+
   findInput.addEventListener('input', () => runFind(true));
   findInput.addEventListener('keydown', (event) => {
     if (event.key === 'Enter' && findTotal > 0) {
@@ -1060,6 +1077,8 @@ document.addEventListener('DOMContentLoaded', () => {
       openPalette();
     } else if (command === 'find') {
       openFind();
+    } else if (command === 'select-all') {
+      selectAllContent();
     } else if (command === 'next-change') {
       stepThroughChanges();
     } else if (command === 'toggle-split') {
@@ -1097,6 +1116,8 @@ document.addEventListener('DOMContentLoaded', () => {
       command = 'go-to-file';
     } else if (key === 'f') {
       command = 'find';
+    } else if (key === 'a') {
+      command = 'select-all';
     } else if (key === '\\') {
       command = 'toggle-split';
     } else if (/^[1-9]$/.test(key)) {
