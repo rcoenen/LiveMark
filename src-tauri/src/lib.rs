@@ -2,11 +2,13 @@ mod document;
 mod install_source;
 mod links;
 mod menu;
+mod session;
 
 use crate::document::{
     DocumentRegistry, DocumentSnapshot, list_markdown_files, load_snapshot, resolve_document_path,
 };
 use crate::install_source::install_source;
+use crate::session::SessionState;
 use crate::links::{LinkTarget, classify_link, resolve_image_path};
 use crate::menu::{
     MENU_CLOSE_TAB, MENU_CLOSE_WINDOW, MENU_FORCE_RELOAD, MENU_INSTALL_CLI, MENU_OPEN, MENU_RELOAD,
@@ -137,6 +139,26 @@ fn emit_activation(app: &AppHandle<Wry>, document_id: &str) {
     }
 }
 
+/// Snapshots the registry into the session file so a restart (including an
+/// update relaunch) can rebuild the rail.
+fn save_session(app: &AppHandle<Wry>) {
+    let session = {
+        let state = app.state::<RuntimeState>();
+        let Ok(data) = state.data.lock() else {
+            eprintln!("runtime data lock is poisoned");
+            return;
+        };
+        SessionState {
+            documents: data.registry.ids(),
+            active_document_id: data.registry.active_id(),
+        }
+    };
+    match app.path().app_data_dir() {
+        Ok(directory) => session::persist(&directory, &session),
+        Err(error) => eprintln!("could not locate app data directory: {error}"),
+    }
+}
+
 fn register_document(app: &AppHandle<Wry>, input: &str, cwd: &Path) -> Result<(), String> {
     let path = resolve_document_path(input, cwd)?;
     let snapshot = load_snapshot(&path)?;
@@ -155,6 +177,7 @@ fn register_document(app: &AppHandle<Wry>, input: &str, cwd: &Path) -> Result<()
             update_window_title(app, Some(&path));
             emit_activation(app, &document_id);
             show_main_window(app);
+            save_session(app);
             return Ok(());
         }
 
@@ -175,6 +198,7 @@ fn register_document(app: &AppHandle<Wry>, input: &str, cwd: &Path) -> Result<()
     emit_activation(app, &document_id);
     update_window_title(app, Some(&path));
     show_main_window(app);
+    save_session(app);
     Ok(())
 }
 
@@ -328,6 +352,7 @@ fn activate_document_by_id(app: &AppHandle<Wry>, document_id: &str) -> Result<()
 
     update_window_title(app, path.as_deref());
     emit_activation(app, document_id);
+    save_session(app);
     Ok(())
 }
 
@@ -381,6 +406,7 @@ fn close_document_by_id(app: &AppHandle<Wry>, document_id: &str) -> Result<(), S
         emit_activation(app, &active_id);
     }
     update_window_title(app, active_path.as_deref());
+    save_session(app);
     Ok(())
 }
 
@@ -834,6 +860,19 @@ pub fn run() {
 
             let startup_paths = cli_document_paths(std::env::args().skip(1), &current_directory());
             register_paths(app.handle(), startup_paths, &current_directory());
+
+            // Reopen last session's rail; missing files are skipped quietly.
+            if let Ok(directory) = app.path().app_data_dir() {
+                let restored = session::read_session(&session::session_file(directory));
+                for document_id in restored.documents {
+                    if let Err(error) = register_document(app.handle(), &document_id, &current_directory()) {
+                        eprintln!("could not restore document {document_id}: {error}");
+                    }
+                }
+                if let Some(active_id) = restored.active_document_id {
+                    let _ = activate_document_by_id(app.handle(), &active_id);
+                }
+            }
             Ok(())
         });
 
@@ -853,7 +892,11 @@ pub fn run() {
         }
         #[cfg(target_os = "macos")]
         RunEvent::Reopen { .. } => show_main_window(app),
-        RunEvent::Exit => close_all_documents(app),
+        RunEvent::Exit => {
+            // Quitting closes every document but must not erase the session.
+            session::begin_shutdown();
+            close_all_documents(app);
+        }
         _ => {}
     });
 }
