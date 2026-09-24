@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.0](https://github.com/rcoenen/LiveMark/compare/v1.5.1...v1.6.0) (2026-09-24)
+
+
+### Features
+
+* restore open documents across restarts ([e7dcd74](https://github.com/rcoenen/LiveMark/commit/e7dcd74e697c5e871911f2bc7f861acb8ec26a98))
+
 ## [1.5.1](https://github.com/rcoenen/LiveMark/compare/v1.5.0...v1.5.1) (2026-09-24)
 
 
