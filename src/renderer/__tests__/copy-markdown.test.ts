@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest';
-import { googleDocsTables, htmlToMarkdown, markdownForCopy, selectionCoversElement } from '../copy-markdown';
+import { googleDocsTables, htmlToMarkdown, htmlToPlainText, markdownForCopy, selectionCoversElement } from '../copy-markdown';
 import { renderMarkdown } from '../markdown';
 
 const TABLE = [
@@ -55,6 +55,35 @@ describe('htmlToMarkdown', () => {
   it('escapes a pipe inside a cell and keeps bold', () => {
     const converted = htmlToMarkdown(renderMarkdown('| a | b |\n|---|---|\n| **x** \\| y | z |').innerHTML);
     expect(converted).toContain('| **x** \\| y | z |');
+  });
+});
+
+describe('htmlToPlainText', () => {
+  it('drops markdown syntax and keeps blocks on blank-line-separated paragraphs', () => {
+    const text = htmlToPlainText(renderMarkdown('## Heading\n\nSome **bold** text with a [link](https://example.com).\n\nAfter.').innerHTML);
+    expect(text).toBe('Heading\n\nSome bold text with a link.\n\nAfter.');
+  });
+
+  it('keeps list markers on adjacent lines and numbers ordered items', () => {
+    const text = htmlToPlainText(renderMarkdown('- one\n- two\n\n1. first\n2. second').innerHTML);
+    expect(text).toBe('- one\n- two\n\n1. first\n2. second');
+  });
+
+  it('turns table rows into tab-separated lines', () => {
+    const text = htmlToPlainText(renderMarkdown(TABLE).innerHTML);
+    expect(text).toContain('A\tB\tC\none\ttwo\tthree [1]\nfour\tfive\tsix');
+    expect(text).toContain('Heading');
+    expect(text).toContain('After.');
+  });
+
+  it('preserves code block layout', () => {
+    const text = htmlToPlainText(renderMarkdown('Before.\n\n```\nif (x) {\n  y();\n}\n```\n\nAfter.').innerHTML);
+    expect(text).toBe('Before.\n\nif (x) {\n  y();\n}\n\nAfter.');
+  });
+
+  it('keeps image alt text and drops everything else of the image', () => {
+    const text = htmlToPlainText(renderMarkdown('![a diagram](images/x.png)').innerHTML);
+    expect(text).toBe('a diagram');
   });
 });
 

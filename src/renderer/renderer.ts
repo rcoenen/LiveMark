@@ -1,4 +1,4 @@
-import { markdownForCopy, selectionCoversElement } from './copy-markdown';
+import { htmlToPlainText, markdownForCopy, selectionCoversElement } from './copy-markdown';
 import { renderMarkdown } from './markdown';
 import { DOCUMENT_DRAG_TYPE, DocumentPane, type PaneHost } from './pane';
 import { installLiveMarkBridge, type DocumentSnapshot } from './platform';
@@ -1079,6 +1079,8 @@ document.addEventListener('DOMContentLoaded', () => {
       openFind();
     } else if (command === 'select-all') {
       selectAllContent();
+    } else if (command === 'copy-plain-text') {
+      copyDocumentAsPlainText();
     } else if (command === 'next-change') {
       stepThroughChanges();
     } else if (command === 'toggle-split') {
@@ -1105,7 +1107,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (key === '+') {
       command = 'text-zoom-in';
     } else if (event.shiftKey) {
-      command = key === 'n' ? 'next-change' : key === 'p' ? 'toggle-pause' : undefined;
+      command = key === 'n' ? 'next-change' : key === 'p' ? 'toggle-pause' : key === 'c' ? 'copy-plain-text' : undefined;
     } else if (key === '=' || key === '+') {
       command = 'text-zoom-in';
     } else if (key === '-') {
@@ -1241,6 +1243,28 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
+  /** Where a copy comes from: the selection inside a pane, or the focused pane's whole document. */
+  function copyTarget(): { pane: DocumentPane; selectionHtml: string | null; coversDocument: boolean } {
+    let pane = focusedPane();
+    let selectionHtml: string | null = null;
+    let coversDocument = false;
+    const selection = window.getSelection();
+    if (selection && !selection.isCollapsed) {
+      const range = selection.getRangeAt(0);
+      const selectionPane = panes.find((candidate) => candidate.content.contains(range.commonAncestorContainer));
+      if (selectionPane) {
+        pane = selectionPane;
+        coversDocument = selectionCoversElement(range, pane.content);
+        if (!coversDocument) {
+          const temporaryContainer = document.createElement('div');
+          temporaryContainer.appendChild(range.cloneContents());
+          selectionHtml = temporaryContainer.innerHTML;
+        }
+      }
+    }
+    return { pane, selectionHtml, coversDocument };
+  }
+
   document.addEventListener('copy', (event) => {
     if (plainClipboard !== null) {
       event.preventDefault();
@@ -1269,25 +1293,18 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!documentState?.content) return;
     event.preventDefault();
 
-    const selection = window.getSelection();
-    let selectionHtml: string | null = null;
-    let coversDocument = false;
-    if (selection && !selection.isCollapsed) {
-      const range = selection.getRangeAt(0);
-      const pane = panes.find((candidate) => candidate.content.contains(range.commonAncestorContainer));
-      if (pane) {
-        coversDocument = selectionCoversElement(range, pane.content);
-        if (!coversDocument) {
-          const temporaryContainer = document.createElement('div');
-          temporaryContainer.appendChild(range.cloneContents());
-          selectionHtml = temporaryContainer.innerHTML;
-        }
-      }
-    }
-
+    const { selectionHtml, coversDocument } = copyTarget();
     event.clipboardData?.setData('text/plain', markdownForCopy(documentState.content, selectionHtml, coversDocument));
     showToast(t('toast.copied'), '', 1000, null);
   });
+
+  /** Copy as Plain Text (⇧⌘C): the same target as a Markdown copy, but stripped of Markdown syntax. */
+  function copyDocumentAsPlainText(): void {
+    const { pane, selectionHtml, coversDocument } = copyTarget();
+    if (!pane.documentId) return;
+    const html = coversDocument || selectionHtml === null ? pane.content.innerHTML : selectionHtml;
+    copyPlainText(htmlToPlainText(html), t('toast.copiedPlain'), '');
+  }
 
   byId('open-file-btn').addEventListener('click', () => {
     void livemark.openFile();

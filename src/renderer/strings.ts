@@ -96,6 +96,7 @@ const STRINGS = {
   'toast.blocksChanged.other': '{count} blocks changed',
   'toast.view': 'View',
   'toast.copied': 'Markdown copied to clipboard',
+  'toast.copiedPlain': 'Plain text copied to clipboard',
   'toast.pathCopied': 'Path copied',
   'toast.copyFailed': 'Could not copy',
   'toast.folderFailed': 'Could not open folder',

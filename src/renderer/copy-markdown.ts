@@ -106,3 +106,77 @@ export function markdownForCopy(source: string, selectionHtml: string | null, co
   if (selectionHtml === null || coversDocument) return googleDocsTables(source);
   return htmlToMarkdown(selectionHtml);
 }
+
+const PLAIN_TEXT_BLOCKS = new Set([
+  'ADDRESS', 'ARTICLE', 'ASIDE', 'BLOCKQUOTE', 'DD', 'DIV', 'DL', 'DT', 'FIGCAPTION', 'FIGURE',
+  'FOOTER', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'HEADER', 'HR', 'LI', 'MAIN', 'NAV', 'OL', 'P',
+  'PRE', 'SECTION', 'TABLE', 'TR', 'UL',
+]);
+
+/**
+ * Pure-text copy: no Markdown syntax. Blocks are separated by blank lines, list items keep a
+ * `- ` or `1. ` marker on adjacent lines, table rows become tab-separated lines, and code
+ * blocks keep their exact layout.
+ */
+export function htmlToPlainText(html: string): string {
+  const container = document.createElement('div');
+  container.innerHTML = html;
+  const codeBlocks: string[] = [];
+  const out: string[] = [];
+  serializePlainText(container, out, codeBlocks);
+  return out
+    .join('')
+    .replace(/[ \t]+\n/g, '\n')
+    .replace(/\n[ \t]+/g, '\n')
+    .replace(/(^|\n)-\n+/g, '$1- ')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+    .replace(/@@LIVEMARK_CODE_(\d+)@@/g, (_match, index: string) => codeBlocks[Number(index)]);
+}
+
+function serializePlainText(node: Node, out: string[], codeBlocks: string[]): void {
+  if (node.nodeType === Node.TEXT_NODE) {
+    out.push((node.nodeValue ?? '').replace(/\s+/g, ' '));
+    return;
+  }
+  if (!(node instanceof Element)) return;
+  const tag = node.tagName;
+  if (tag === 'SCRIPT' || tag === 'STYLE') return;
+  if (tag === 'BR') {
+    out.push('\n');
+    return;
+  }
+  if (tag === 'IMG') {
+    const alt = node.getAttribute('alt')?.replace(/\s+/g, ' ').trim();
+    if (alt) out.push(alt);
+    return;
+  }
+  if (tag === 'PRE') {
+    // Code is swapped back in after the whitespace cleanup so its indentation survives.
+    codeBlocks.push((node.textContent ?? '').replace(/\n$/, ''));
+    out.push('\n', `@@LIVEMARK_CODE_${codeBlocks.length - 1}@@`, '\n');
+    return;
+  }
+  if (tag === 'TR') {
+    const cells = Array.from(node.children).filter((cell) => cell.tagName === 'TD' || cell.tagName === 'TH');
+    cells.forEach((cell, index) => {
+      if (index > 0) out.push('\t');
+      for (const child of Array.from(cell.childNodes)) serializePlainText(child, out, codeBlocks);
+    });
+    out.push('\n');
+    return;
+  }
+  const block = PLAIN_TEXT_BLOCKS.has(tag);
+  if (block) out.push('\n');
+  if (tag === 'LI') out.push(listMarker(node));
+  for (const child of Array.from(node.childNodes)) serializePlainText(child, out, codeBlocks);
+  if (block && tag !== 'LI') out.push('\n');
+}
+
+function listMarker(item: Element): string {
+  const list = item.parentElement;
+  if (list?.tagName !== 'OL') return '- ';
+  const start = Number(list.getAttribute('start')) || 1;
+  const index = Array.from(list.children).filter((child) => child.tagName === 'LI').indexOf(item);
+  return `${start + Math.max(index, 0)}. `;
+}

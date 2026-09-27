@@ -66,8 +66,10 @@ pub fn build_menu(app: &App) -> tauri::Result<Menu<Wry>> {
 
     let find = renderer_item(app, "find", "Find…", "CmdOrCtrl+F")?;
     let select_all = renderer_item(app, "select-all", "Select All", "CmdOrCtrl+A")?;
+    let copy_plain_text = renderer_item(app, "copy-plain-text", "Copy as Plain Text", "CmdOrCtrl+Shift+C")?;
     let edit_menu = SubmenuBuilder::new(app, "Edit")
         .copy()
+        .item(&copy_plain_text)
         .item(&select_all)
         .separator()
         .item(&find)
