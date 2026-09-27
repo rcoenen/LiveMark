@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.1](https://github.com/rcoenen/LiveMark/compare/v1.6.0...v1.6.1) (2026-09-27)
+
+
+### Bug Fixes
+
+* add Copy as Plain Text (⇧⌘C) alongside Markdown copy ([d75e2ca](https://github.com/rcoenen/LiveMark/commit/d75e2cae7d8c19c425d804cfdaea443030db92e2))
+
 ## [1.6.0](https://github.com/rcoenen/LiveMark/compare/v1.5.1...v1.6.0) (2026-09-24)
 
 
