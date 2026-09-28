@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest';
-import { bannerModel } from '../updates';
+import { BREW_UPGRADE_COMMAND, bannerModel } from '../updates';
 
 describe('bannerModel', () => {
   it('offers install and release notes to direct installs', () => {
@@ -12,11 +12,12 @@ describe('bannerModel', () => {
     expect(model.autoHideMs).toBeNull();
   });
 
-  it('points brew installs at brew upgrade and never at in-app install', () => {
+  it('points brew installs at a tap refresh plus upgrade, never at an in-app install', () => {
     const model = bannerModel({ kind: 'available', version: '1.5.0', source: 'brew' });
     expect(model.text).toBe('LiveMark 1.5.0 is available');
     expect(model.detail).toBe('Installed via Homebrew');
-    expect(model.actionLabel).toBe('Copy brew upgrade command');
+    expect(model.actionLabel).toBe('Copy Homebrew update command');
+    expect(BREW_UPGRADE_COMMAND).toBe('brew update && brew upgrade --cask livemark');
     expect(model.showNotes).toBe(true);
     expect(model.autoHideMs).toBeNull();
   });

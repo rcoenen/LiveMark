@@ -121,6 +121,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const allReloadsBtn = byId<HTMLButtonElement>('all-reloads-btn');
   const railEl = byId('rail');
   const railToggle = byId<HTMLButtonElement>('rail-toggle');
+  const railToggleLabel = byId('rail-toggle-label');
   const railFooterEl = railEl.querySelector('.rail__footer') as HTMLElement;
   const findBarEl = byId('find-bar');
   const findInput = byId<HTMLInputElement>('find-input');
@@ -181,6 +182,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const label = t(shown ? 'rail.hide' : 'rail.show');
     railToggle.title = label;
     railToggle.setAttribute('aria-label', label);
+    railToggleLabel.textContent = shown
+      ? t('rail.hideShort')
+      : documents.size > 1
+        ? t('rail.documentsCount', { count: documents.size })
+        : t('rail.documents');
     railEl.toggleAttribute('inert', collapsed && !shown);
   }
 
@@ -644,6 +650,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
     updateStatus();
+    setRailOpen(document.documentElement.classList.contains('is-rail-open'));
   }
 
   function updatePaneHeader(pane: DocumentPane): void {

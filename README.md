@@ -22,6 +22,14 @@ brew tap rcoenen/livemark https://github.com/rcoenen/LiveMark
 brew install --cask rcoenen/livemark/livemark
 ```
 
+Upgrade with:
+
+```sh
+brew update && brew upgrade --cask livemark
+```
+
+`brew upgrade` alone uses the tap copy already on this Mac. `brew update` fetches the cask from GitHub first. Homebrew only does that fetch automatically about once a day.
+
 Or:
 
 ```sh

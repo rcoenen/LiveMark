@@ -25,7 +25,8 @@ export interface BannerModel {
 }
 
 const RELEASES_URL = 'https://github.com/rcoenen/LiveMark/releases/latest';
-const BREW_UPGRADE_COMMAND = 'brew upgrade --cask livemark';
+// `brew upgrade` reads the tap clone on this Mac. A release on GitHub is invisible until `brew update` fetches it.
+export const BREW_UPGRADE_COMMAND = 'brew update && brew upgrade --cask livemark';
 const STARTUP_CHECK_DELAY_MS = 3000;
 const BREW_COPIED_FEEDBACK_MS = 3000;
 
