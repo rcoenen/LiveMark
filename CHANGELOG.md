@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.6.3](https://github.com/rcoenen/LiveMark/compare/v1.6.2...v1.6.3) (2026-09-28)
+
+
+### Bug Fixes
+
+* let the document list be resized ([40ddf14](https://github.com/rcoenen/LiveMark/commit/40ddf14c5b12d5cabdcf07749200317a695929a5))
+* name the folded document list and refresh Homebrew before upgrade ([e330564](https://github.com/rcoenen/LiveMark/commit/e33056443b70de0abdf1951acd02cd238c7d9e29))
+
 ## [1.6.2](https://github.com/rcoenen/LiveMark/compare/v1.6.1...v1.6.2) (2026-09-28)
 
 
