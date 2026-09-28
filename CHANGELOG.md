@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.2](https://github.com/rcoenen/LiveMark/compare/v1.6.1...v1.6.2) (2026-09-28)
+
+
+### Bug Fixes
+
+* collapse the document rail when the window is narrow ([1ac3bc4](https://github.com/rcoenen/LiveMark/commit/1ac3bc4acfadb487c7770be5895b4dde7177b422))
+
 ## [1.6.1](https://github.com/rcoenen/LiveMark/compare/v1.6.0...v1.6.1) (2026-09-27)
 
 
