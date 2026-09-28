@@ -185,6 +185,37 @@ html.is-rail-open .rail-toggle__mark {
   -webkit-user-select: none;
 }
 
+.rail__resize {
+  position: absolute;
+  top: 0;
+  right: -4px;
+  bottom: 0;
+  z-index: 5;
+  width: 8px;
+  cursor: col-resize;
+  touch-action: none;
+}
+
+.rail__resize::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 3px;
+  width: 2px;
+  background: transparent;
+}
+
+.rail__resize:hover::after,
+.rail.is-resizing .rail__resize::after {
+  background: var(--indigo-9);
+}
+
+body.is-rail-resizing {
+  cursor: col-resize;
+  user-select: none;
+}
+
 /* Leaves room for the macOS window controls of the overlay title bar */
 .rail__titlebar {
   flex: none;
@@ -1759,6 +1790,10 @@ html[data-theme="dark"] .hljs-builtin-name {
     width: 232px;
     transform: translateX(-100%);
     transition: transform 0.16s ease;
+  }
+
+  .rail__resize {
+    display: none;
   }
 
   html.is-rail-open .rail {

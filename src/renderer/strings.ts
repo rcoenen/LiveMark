@@ -13,6 +13,7 @@ const STRINGS = {
   'rail.show': 'Show documents',
   'rail.hide': 'Hide documents',
   'rail.hideShort': 'Hide',
+  'rail.resize': 'Resize the document list',
   'rail.versionLabel': 'Application version',
   'tab.updates': '{name}, {count} updates',
   'tab.close': 'Close {name}',

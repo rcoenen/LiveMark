@@ -2,6 +2,7 @@ import { htmlToPlainText, markdownForCopy, selectionCoversElement } from './copy
 import { renderMarkdown } from './markdown';
 import { DOCUMENT_DRAG_TYPE, DocumentPane, type PaneHost } from './pane';
 import { installLiveMarkBridge, type DocumentSnapshot } from './platform';
+import { RAIL_WIDTH_DEFAULT, RAIL_WIDTH_MAX, RAIL_WIDTH_MIN, dockedRailWidth, railWidthLimit } from './rail-width';
 import { applyStaticStrings, t, tCount } from './strings';
 import { initUpdates } from './updates';
 import { diffReload, fuzzyScore, indexBlocks, isReloadOnScreen, type BlockIndex, type ReloadEntry } from './reloads';
@@ -189,6 +190,72 @@ document.addEventListener('DOMContentLoaded', () => {
         : t('rail.documents');
     railEl.toggleAttribute('inert', collapsed && !shown);
   }
+
+  const RAIL_WIDTH_KEY = 'livemark.railWidth';
+  const railResize = byId('rail-resize');
+  let railPreferred = readRailPreferred();
+
+  function readRailPreferred(): number {
+    const stored = Number(localStorage.getItem(RAIL_WIDTH_KEY));
+    return Number.isFinite(stored) && stored > 0 ? stored : RAIL_WIDTH_DEFAULT;
+  }
+
+  function layoutDockedRail(): void {
+    if (railCollapseMedia.matches) {
+      document.documentElement.style.removeProperty('--rail-width');
+      return;
+    }
+    const width = dockedRailWidth(railPreferred, window.innerWidth);
+    document.documentElement.style.setProperty('--rail-width', `${width}px`);
+    railResize.setAttribute('aria-valuemin', String(RAIL_WIDTH_MIN));
+    railResize.setAttribute('aria-valuemax', String(Math.min(RAIL_WIDTH_MAX, railWidthLimit(window.innerWidth))));
+    railResize.setAttribute('aria-valuenow', String(width));
+  }
+
+  function setRailPreferred(next: number): void {
+    railPreferred = Math.round(Math.min(RAIL_WIDTH_MAX, Math.max(RAIL_WIDTH_MIN, next)));
+    localStorage.setItem(RAIL_WIDTH_KEY, String(railPreferred));
+    layoutDockedRail();
+  }
+
+  railResize.addEventListener('pointerdown', (event) => {
+    if (railCollapseMedia.matches || event.button !== 0) return;
+    event.preventDefault();
+    const originX = event.clientX;
+    const originWidth = railEl.getBoundingClientRect().width;
+    railEl.classList.add('is-resizing');
+    document.body.classList.add('is-rail-resizing');
+    try {
+      railResize.setPointerCapture(event.pointerId);
+    } catch {
+      // A pointer that cannot be captured still receives move events on the handle.
+    }
+
+    function move(moveEvent: PointerEvent): void {
+      setRailPreferred(originWidth + (moveEvent.clientX - originX));
+    }
+    function stop(stopEvent: PointerEvent): void {
+      if (railResize.hasPointerCapture(stopEvent.pointerId)) railResize.releasePointerCapture(stopEvent.pointerId);
+      railResize.removeEventListener('pointermove', move);
+      railResize.removeEventListener('pointerup', stop);
+      railResize.removeEventListener('pointercancel', stop);
+      railEl.classList.remove('is-resizing');
+      document.body.classList.remove('is-rail-resizing');
+    }
+    railResize.addEventListener('pointermove', move);
+    railResize.addEventListener('pointerup', stop);
+    railResize.addEventListener('pointercancel', stop);
+  });
+  railResize.addEventListener('dblclick', () => setRailPreferred(RAIL_WIDTH_DEFAULT));
+  railResize.addEventListener('keydown', (event) => {
+    const step = event.shiftKey ? 32 : 16;
+    if (event.key === 'ArrowRight') setRailPreferred(railPreferred + step);
+    else if (event.key === 'ArrowLeft') setRailPreferred(railPreferred - step);
+    else if (event.key === 'Home') setRailPreferred(RAIL_WIDTH_DEFAULT);
+    else return;
+    event.preventDefault();
+  });
+  layoutDockedRail();
 
   const paneHost: PaneHost = {
     livemark,
@@ -1177,6 +1244,7 @@ document.addEventListener('DOMContentLoaded', () => {
   window.addEventListener('resize', () => {
     setPopoverOpen(false);
     closeTabMenu();
+    layoutDockedRail();
   });
   marginColumnMedia.addEventListener('change', () => {
     setPopoverOpen(false);
