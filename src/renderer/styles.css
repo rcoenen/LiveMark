@@ -31,6 +31,8 @@
   --font-sans: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', system-ui, sans-serif;
   --font-mono: 'SF Mono', 'JetBrains Mono', Menlo, Consolas, monospace;
   --rail-width: 232px;
+  --measure: 680px;
+  --doc-pad-x: 40px;
   --titlebar-height: 28px;
 
   /* Semantic aliases used by document typography */
@@ -118,6 +120,35 @@ body {
   letter-spacing: 0.08em;
   font-size: 11px;
   color: var(--gray-10);
+}
+
+/* Shown only while the rail is collapsed. Sits above the drawer so it can close it. */
+.rail-toggle {
+  display: none;
+  position: fixed;
+  top: 6px;
+  left: 78px;
+  z-index: 160;
+  place-items: center;
+  width: 26px;
+  height: 22px;
+  padding: 0;
+  color: var(--gray-11);
+  background-color: var(--gray-1);
+  border: 0;
+  border-radius: var(--radius-2);
+  box-shadow: inset 0 0 0 1px var(--gray-a5);
+  cursor: pointer;
+}
+
+.rail-toggle:hover {
+  color: var(--gray-12);
+  background-color: var(--gray-3);
+}
+
+.rail-toggle:focus-visible {
+  outline: 2px solid var(--indigo-9);
+  outline-offset: 2px;
 }
 
 /* Documents rail */
@@ -681,10 +712,10 @@ body {
 
 .document-layout {
   display: grid;
-  grid-template-columns: minmax(0, 680px) 268px;
+  grid-template-columns: minmax(0, var(--measure)) 268px;
   justify-content: center;
   gap: 56px;
-  padding: 52px 40px 0;
+  padding: 52px var(--doc-pad-x) 0;
 }
 
 .workspace.is-split .document-layout {
@@ -1695,19 +1726,50 @@ html[data-theme="dark"] .hljs-builtin-name {
   }
 }
 
-@media (max-width: 760px) {
+/* Rail plus padding plus the 680px measure is 992px. Below that the rail leaves the
+   layout so the document can stay at its full measure instead of being crushed. */
+@media (max-width: 991px) {
   :root {
-    --rail-width: 176px;
+    --rail-width: 0px;
   }
 
-  .document-layout {
-    padding-right: 20px;
-    padding-left: 20px;
+  .rail-toggle {
+    display: grid;
+  }
+
+  .rail {
+    width: 232px;
+    transform: translateX(-100%);
+    transition: transform 0.16s ease;
+  }
+
+  html.is-rail-open .rail {
+    transform: none;
+    box-shadow: var(--shadow-4);
+  }
+
+  .workspace:not(.is-split) .document-layout {
+    grid-template-columns: var(--measure);
+    width: max(100%, calc(var(--measure) + var(--doc-pad-x) * 2));
+  }
+
+  .workspace:not(.is-split) .pane__scroller {
+    overflow-x: auto;
+  }
+}
+
+@media (max-width: 760px) {
+  :root {
+    --doc-pad-x: 20px;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .live-status__dot {
     animation: none !important;
+  }
+
+  .rail {
+    transition: none;
   }
 }

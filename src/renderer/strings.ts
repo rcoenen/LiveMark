@@ -10,6 +10,8 @@ const STRINGS = {
   'rail.closeHint': '⌘W close',
   'rail.theme': 'Dark',
   'rail.themeTitle': 'Toggle light/dark mode',
+  'rail.show': 'Show documents',
+  'rail.hide': 'Hide documents',
   'rail.versionLabel': 'Application version',
   'tab.updates': '{name}, {count} updates',
   'tab.close': 'Close {name}',

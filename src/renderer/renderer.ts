@@ -39,6 +39,8 @@ const EDITING_WINDOW_MS = 10000;
 const EDITING_THRESHOLD = 3;
 const MIN_SPLIT_WIDTH = 1180;
 const MARGIN_COLUMN_QUERY = '(min-width: 1141px)';
+/** Rail (232) + document padding (80) + the 680px measure. Narrower than this, the rail would crush the document. */
+const RAIL_COLLAPSE_QUERY = '(max-width: 991px)';
 const RECENT_RELOADS = 3;
 const THEME_KEY = 'livemark-theme';
 const SETTINGS_KEY = 'livemark-reload-settings';
@@ -118,6 +120,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const statusEl = byId('live-status');
   const allReloadsBtn = byId<HTMLButtonElement>('all-reloads-btn');
   const railEl = byId('rail');
+  const railToggle = byId<HTMLButtonElement>('rail-toggle');
   const railFooterEl = railEl.querySelector('.rail__footer') as HTMLElement;
   const findBarEl = byId('find-bar');
   const findInput = byId<HTMLInputElement>('find-input');
@@ -166,6 +169,20 @@ document.addEventListener('DOMContentLoaded', () => {
   let findIndex = 0;
   let draggedDocumentId: string | null = null;
   const marginColumnMedia = window.matchMedia(MARGIN_COLUMN_QUERY);
+  const railCollapseMedia = window.matchMedia(RAIL_COLLAPSE_QUERY);
+
+  // Below the collapse width the rail leaves the layout. Opening it covers the document
+  // instead of pushing it, so the 680px measure stays intact.
+  function setRailOpen(open: boolean): void {
+    const collapsed = railCollapseMedia.matches;
+    const shown = collapsed && open;
+    document.documentElement.classList.toggle('is-rail-open', shown);
+    railToggle.setAttribute('aria-expanded', String(shown));
+    const label = t(shown ? 'rail.hide' : 'rail.show');
+    railToggle.title = label;
+    railToggle.setAttribute('aria-label', label);
+    railEl.toggleAttribute('inert', collapsed && !shown);
+  }
 
   const paneHost: PaneHost = {
     livemark,
@@ -574,7 +591,10 @@ document.addEventListener('DOMContentLoaded', () => {
           'aria-label',
           documentState.updateCount > 0 ? t('tab.updates', { name, count: documentState.updateCount }) : name
         );
-        tabButton.addEventListener('click', () => requestDocumentActivation(documentState.id));
+        tabButton.addEventListener('click', () => {
+          requestDocumentActivation(documentState.id);
+          setRailOpen(false);
+        });
 
         const label = document.createElement('span');
         label.className = 'document-tab__label';
@@ -1099,6 +1119,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (event.key === 'Escape') {
       setPopoverOpen(false);
       closeTabMenu();
+      setRailOpen(false);
       return;
     }
     if (!event.metaKey && !event.ctrlKey) return;
@@ -1135,6 +1156,15 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!popoverEl.hidden && !popoverEl.contains(target) && !allReloadsBtn.contains(target)) setPopoverOpen(false);
     if (!paletteEl.hidden && !paletteEl.contains(target)) closePalette();
     if (!tabMenuEl.hidden && !tabMenuEl.contains(target)) closeTabMenu();
+    if (
+      document.documentElement.classList.contains('is-rail-open') &&
+      !railEl.contains(target) &&
+      !railToggle.contains(target) &&
+      !popoverEl.contains(target) &&
+      !tabMenuEl.contains(target)
+    ) {
+      setRailOpen(false);
+    }
   });
 
   window.addEventListener('resize', () => {
@@ -1145,6 +1175,11 @@ document.addEventListener('DOMContentLoaded', () => {
     setPopoverOpen(false);
     placeLiveCard();
   });
+  railCollapseMedia.addEventListener('change', () => setRailOpen(false));
+  railToggle.addEventListener('click', () => {
+    setRailOpen(!document.documentElement.classList.contains('is-rail-open'));
+  });
+  setRailOpen(false);
 
   allReloadsBtn.addEventListener('click', () => setPopoverOpen(popoverEl.hidden));
   byId('go-to-file-btn').addEventListener('click', openPalette);
