@@ -17,10 +17,13 @@
 - [x] 3.1 Windows release step signs `LiveMark_<version>_x64-setup.exe` with the existing minisign key.
 - [x] 3.2 Publish job merges `darwin-aarch64` and `windows-x86_64` into one `latest.json` and uploads it once. The macOS job no longer uploads its own manifest.
 - [x] 3.3 README install sections for Mac and Windows, including the SmartScreen step. Neutralize "for macOS" in the bundle copyright and package description.
-- [x] 3.3a Header badges: "download mac" and "download windows" version badges, linking to stable asset names `LiveMark-mac.dmg` and `LiveMark-windows-setup.exe`. Upload those names next to the versioned installers.
+- [x] 3.3a Header badges: "download mac" links to `LiveMark-mac.dmg`. "download windows" links to the releases page. The only Windows release file is `LiveMark_<version>_x64-setup.exe`.
 - [x] 3.3b Replace the single total download badge. Publish shields endpoint JSON on branch `download-badges` (on release and daily) that counts `.dmg` assets as Mac and `-setup.exe` assets as Windows.
 - [ ] 3.4 Manual smoke on Windows: install without admin, open a file, live reload after an editor save, tabs, CLI, and a direct update. Confirm the Mac cask still shows the Homebrew command and does not self-install.
 - [x] 3.5 Update `openspec/project.md` so it describes both targets.
+- [x] 3.7 The `windows-latest` CI job uploads `LiveMark_*_x64-setup.exe` as an Actions artifact and does not create a GitHub Release.
+- [x] 3.8 A release contains one Windows installer, `LiveMark_<version>_x64-setup.exe`. No ARM64, no 32-bit, no stable alias. `latest.json` lists only `windows-x86_64`.
+- [x] 3.9 A new release is a pre-release. The Homebrew cask waits until that release is promoted.
 - [ ] 3.6 Do not push a `feat:` commit or merge a release PR until the minor version bump is explicitly approved.
 
 ## 4. Verification on the Mac tree

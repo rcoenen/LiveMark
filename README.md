@@ -6,7 +6,7 @@
 
 <p align="center">
   <a href="https://github.com/rcoenen/LiveMark/releases/latest/download/LiveMark-mac.dmg"><img alt="Download Mac" src="https://img.shields.io/github/v/release/rcoenen/LiveMark?sort=semver&amp;display_name=tag&amp;style=for-the-badge&amp;label=download%20mac&amp;color=7C3AED"></a>
-  <a href="https://github.com/rcoenen/LiveMark/releases/latest/download/LiveMark-windows-setup.exe"><img alt="Download Windows" src="https://img.shields.io/github/v/release/rcoenen/LiveMark?sort=semver&amp;display_name=tag&amp;style=for-the-badge&amp;label=download%20windows&amp;color=7C3AED"></a>
+  <a href="https://github.com/rcoenen/LiveMark/releases"><img alt="Download Windows" src="https://img.shields.io/github/v/release/rcoenen/LiveMark?sort=semver&amp;display_name=tag&amp;style=for-the-badge&amp;label=download%20windows&amp;color=7C3AED"></a>
   <a href="https://github.com/rcoenen/LiveMark/releases"><img alt="Mac downloads" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Frcoenen%2FLiveMark%2Fdownload-badges%2Fmac.json&amp;style=for-the-badge"></a>
   <a href="https://github.com/rcoenen/LiveMark/releases"><img alt="Windows downloads" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Frcoenen%2FLiveMark%2Fdownload-badges%2Fwindows.json&amp;style=for-the-badge"></a>
   <a href="https://github.com/rcoenen/LiveMark/actions/workflows/ci.yml"><img alt="Build" src="https://img.shields.io/github/actions/workflow/status/rcoenen/LiveMark/ci.yml?branch=main&amp;style=for-the-badge&amp;label=build"></a>
@@ -52,7 +52,7 @@ A copy installed from the DMG updates from inside the app. A Homebrew install do
 
 ### Windows
 
-Download the [setup](https://github.com/rcoenen/LiveMark/releases/latest/download/LiveMark-windows-setup.exe) and run it. It installs for the current user, under `%LOCALAPPDATA%\LiveMark`, and does not ask for an administrator account.
+The Windows package is one file, `LiveMark_<version>_x64-setup.exe`, on the same [release](https://github.com/rcoenen/LiveMark/releases) as the Mac DMG. It is the x64 installer for Intel and AMD PCs. Run it. It installs for the current user, under `%LOCALAPPDATA%\LiveMark`, and does not ask for an administrator account.
 
 The installer is unsigned. Windows SmartScreen shows **More info**, then **Run anyway**.
 
@@ -100,4 +100,4 @@ npm run build
 npm run dist
 ```
 
-The macOS release command writes the ad-hoc-signed app, DMG, zip, and checksums to `src-tauri/target/release/bundle/macos/` and `dist/`. A published tag builds that DMG and the Windows NSIS installer together.
+The macOS release command writes the ad-hoc-signed app, DMG, zip, and checksums to `src-tauri/target/release/bundle/macos/` and `dist/`. A published tag builds that DMG and one Windows setup, `LiveMark_<version>_x64-setup.exe`, together. That release stays a pre-release until it is promoted, so it does not replace the latest release or the Homebrew cask.

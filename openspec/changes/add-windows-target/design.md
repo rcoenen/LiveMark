@@ -18,7 +18,7 @@ The product decision is that Windows is another target of this app, not a fork. 
 
 WebView2 uses the default `downloadBootstrapper` (silent). Windows 11 and current Windows 10 already have the runtime. The bootstrapper runs only when it is missing, and it needs a network at that moment. Embedding the bootstrapper adds about 1.8 MB and is not required for v1.
 
-The release artifact name follows Tauri: `LiveMark_<version>_x64-setup.exe`.
+The release contains one Windows file, named by Tauri: `LiveMark_<version>_x64-setup.exe`. There is no second copy under a stable filename, and no ARM64 or 32-bit installer. `latest.json` lists Windows only as `windows-x86_64`, pointing at that versioned file. An ARM64 setup may be built locally to exercise a Windows 11 ARM VM; it is not uploaded.
 
 ### Same updater, one manifest, two jobs
 Do not set `bundle.createUpdaterArtifacts`. On Mac the packaging script tars the app after the ad-hoc `codesign`; turning the flag on would sign the unsealed bundle and race that script.
@@ -60,9 +60,9 @@ Normalize before compare and before using a path as a watch-map key: strip the e
 ### Build scripts and CI
 `package.json` `build:frontend` uses `rm`, `mkdir -p`, and `cp`. npm runs that script with `cmd.exe` on Windows, so the Windows job cannot reuse it. Replace those three calls with Node `fs` operations. Leave `npm run dist` as the macOS packaging script. The Windows release step is a separate workflow command that builds `--bundles nsis` and signs the setup executable.
 
-`ci.yml` gains a `windows-latest` job: `npm ci`, `npm test`, `npm run build`, `tauri build --bundles nsis` without the signing secrets. The macOS job stays. A GUI smoke (launch, open a file, live reload, SmartScreen, updater) is manual on a Windows machine. CI proves the binary and the installer exist.
+`ci.yml` gains a `windows-latest` job: `npm ci`, `npm test`, `npm run build`, `tauri build --bundles nsis` without the signing secrets, then uploads `LiveMark_*_x64-setup.exe` as the Actions artifact `LiveMark-x64-setup`. That artifact is the real x64 installer. The job does not create a GitHub Release. The macOS job stays. A pull request is enough to produce the exe; an x64 Windows machine and an ARM VM are not required before that build runs. Dropping the exe into a Windows 11 ARM VM is optional. A GUI smoke (launch, open a file, live reload, SmartScreen, updater) stays manual.
 
-Release workflow: `build-macos` and `build-windows` in parallel after release-please, then one publish job that merges `latest.json`, uploads every artifact to the same tag, and leaves the Homebrew cask bump on the macOS side. Do not tag until both bundles have been produced.
+Release workflow: `build-macos` and `build-windows` in parallel after release-please, then one publish job that merges `latest.json` and uploads both platforms to the same tag. As soon as release-please creates the release, the workflow marks it a pre-release, so GitHub latest and the in-app updater stay on the previous version. The Homebrew cask is not bumped for a pre-release. After a Windows smoke test, `workflow_dispatch` with `promote` set clears the pre-release flag, marks the tag latest, and bumps the cask. Do not tag until both bundles have been produced.
 
 ### Icons
 Generate once and commit:
@@ -83,14 +83,12 @@ Shields matches an asset name exactly, and our file names include the version, s
 
 `latest.json`, `SHA256SUMS.txt`, `.sig`, `.zip`, `.tar.gz`, and `install.sh` stay out of both numbers.
 
-The version badges keep using `github/v/release` so the label tracks the tag without a README edit. Each links straight at the installer:
+The version badges keep using `github/v/release` so the label tracks the latest non-prerelease tag without a README edit.
 
 - Mac → `releases/latest/download/LiveMark-mac.dmg`
-- Windows → `releases/latest/download/LiveMark-windows-setup.exe`
+- Windows → the releases page, where the single file is `LiveMark_<version>_x64-setup.exe`
 
-The publish job uploads those two stable names beside the versioned DMG and `LiveMark_<version>_x64-setup.exe`. Homebrew and the updater keep the versioned files. A download of either name counts for that platform.
-
-The Windows button goes on the README in the same release that first uploads the NSIS installer. Until that file exists, the link 404s.
+The publish job uploads the stable Mac DMG beside the versioned DMG. It does not upload a second Windows setup. Homebrew and the updater keep the versioned files. A download of a `.dmg` counts as Mac, and a download of the x64 setup counts as Windows. While the new tag is a pre-release, the version badges stay on the previous latest release.
 
 ## Risks / Trade-offs
 - Unsigned NSIS keeps the SmartScreen prompt on first install. Accepted, same stance as the ad-hoc Mac build. An OV certificate is a later decision if the prompt becomes the problem.

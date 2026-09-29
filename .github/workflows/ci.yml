@@ -8,6 +8,7 @@ on:
 
 permissions:
   contents: read
+  actions: write
 
 jobs:
   build:
@@ -75,3 +76,12 @@ jobs:
 
       - name: Build Windows installer
         run: npm run tauri build -- --bundles nsis
+
+      # The real x64 setup, downloadable from this run. This is not a GitHub Release.
+      - name: Upload x64 setup
+        uses: actions/upload-artifact@v4
+        with:
+          name: LiveMark-x64-setup
+          path: src-tauri/target/release/bundle/nsis/*_x64-setup.exe
+          if-no-files-found: error
+          retention-days: 14

@@ -14,7 +14,6 @@ if (!existsSync(source)) {
 mkdirSync('dist', { recursive: true });
 const destination = join('dist', versioned);
 copyFileSync(source, destination);
-copyFileSync(source, join('dist', 'LiveMark-windows-setup.exe'));
 
 const signed = spawnSync('npx', ['tauri', 'signer', 'sign', destination], {
   stdio: 'inherit',

@@ -5,7 +5,13 @@ LiveMark SHALL build Windows from the same repository, the same `src-tauri` tree
 
 #### Scenario: One tag ships both platforms
 - **WHEN** a version is published
-- **THEN** the GitHub Release SHALL contain the macOS DMG and the Windows x64 NSIS installer for that version
+- **THEN** the GitHub Release SHALL contain the macOS DMG and exactly one Windows installer, `LiveMark_<version>_x64-setup.exe`
+- **AND** the release SHALL NOT contain a Windows ARM64 installer, a 32-bit installer, or a second copy of the setup
+
+#### Scenario: Updater lists x64 only
+- **WHEN** `latest.json` is published
+- **THEN** the only Windows platform key SHALL be `windows-x86_64`
+- **AND** its URL SHALL point at `LiveMark_<version>_x64-setup.exe` on that tag
 
 #### Scenario: No second source tree
 - **WHEN** the Windows target is built
@@ -100,8 +106,22 @@ A pull request SHALL build the Windows NSIS installer on `windows-latest` from t
 
 #### Scenario: Pull request build
 - **WHEN** a pull request is built
-- **THEN** the Windows job SHALL produce an NSIS installer
+- **THEN** the Windows job SHALL produce an x64 NSIS installer and upload it as an Actions artifact
+- **AND** that run SHALL NOT create a GitHub Release
 - **AND** the macOS job SHALL still build the macOS app
+
+### Requirement: A new release stays off latest until it is promoted
+The release workflow SHALL mark a newly created GitHub Release as a pre-release. A pre-release SHALL NOT replace the latest release and SHALL NOT bump the Homebrew cask. Promoting the release SHALL clear the pre-release flag, mark that tag as the latest release, and bump the cask to that version's DMG.
+
+#### Scenario: Publish leaves latest unchanged
+- **WHEN** the release workflow publishes a new tag
+- **THEN** the GitHub Release SHALL be a pre-release
+- **AND** the Homebrew cask SHALL stay on the previous version
+
+#### Scenario: Promote after the Windows smoke test
+- **WHEN** the release is promoted
+- **THEN** the tag SHALL be the latest release
+- **AND** the Homebrew cask SHALL use that version's DMG
 
 ### Requirement: Unsigned install is documented
 The README SHALL describe the Mac installer and the Windows NSIS installer. The Windows instructions SHALL include the SmartScreen confirmation required to run the unsigned installer.
@@ -118,9 +138,10 @@ The README SHALL describe the Mac installer and the Windows NSIS installer. The 
 The README header SHALL show a Mac download badge and a Windows download badge for the current version, plus a separate download count for each platform. The Mac count SHALL be the sum of downloads of `.dmg` assets across releases. The Windows count SHALL be the sum of downloads of `-setup.exe` assets across releases. Checksums, signatures, updater manifests, archives, and `install.sh` SHALL NOT be included in either count.
 
 #### Scenario: Header names both installers
-- **WHEN** the README is rendered for a release that contains both installers
-- **THEN** the header SHALL show a Mac download badge and a Windows download badge for the same version
-- **AND** each badge SHALL link to that platform's installer on the latest release
+- **WHEN** the README is rendered
+- **THEN** the header SHALL show a Mac download badge linking to `LiveMark-mac.dmg` on the latest release
+- **AND** a Windows download badge linking to the releases page
+- **AND** the Windows install section SHALL name `LiveMark_<version>_x64-setup.exe` as the only Windows package
 
 #### Scenario: Counts follow the packages
 - **WHEN** the download badges are rendered

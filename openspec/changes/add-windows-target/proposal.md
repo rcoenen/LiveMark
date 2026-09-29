@@ -10,12 +10,14 @@ LiveMark is the same live Markdown viewer on every machine it runs on. Today tha
 - Keep the Tauri updater and `latest.json`. A Windows release install is `direct` and may update itself. Homebrew installs on Mac stay instruction-only.
 - Gate macOS-only menu items, overlay title-bar insets, and the POSIX `livemark` script. Windows gets a native title bar, Ctrl shortcut labels, a `livemark.cmd` installed onto the user PATH, and close-quits instead of close-hides.
 - Normalize watched paths so a save still refreshes when Windows differs in drive-letter case or the `\\?\` prefix.
-- Build the NSIS installer on `windows-latest` in CI. The release workflow publishes it on the same tag as the DMG and merges both platforms into one `latest.json`.
-- Document both installers in the README, including the SmartScreen step. Replace the single "download the dmg" badge and the one total download counter with a Mac badge, a Windows badge, and a separate package-download count for each.
+- Build the NSIS installer on `windows-latest` in CI and upload that x64 setup as an Actions artifact. That run does not create a GitHub Release.
+- The release workflow publishes the same tag as the DMG and merges both platforms into one `latest.json`, with Windows only under `windows-x86_64`. The new release is a pre-release, so it does not become latest and the Homebrew cask stays put until the release is promoted after a Windows smoke test.
+- Document both installers in the README, including the SmartScreen step. Replace the single "download the dmg" badge and the one total download counter with a Mac badge, a Windows badge, and a separate package-download count for each. The Windows package on a release is only `LiveMark_<version>_x64-setup.exe`.
 
 ## Non-goals
 - A second repo, a `windows/` source tree, or a second version line.
-- Microsoft Store, winget, Scoop, a portable zip, an Authenticode or EV certificate, Windows ARM, and a custom `.md` file icon.
+- Microsoft Store, winget, Scoop, a portable zip, an MSI, an Authenticode or EV certificate, a custom `.md` file icon, and a second Windows installer (ARM64, 32-bit, or a stable alias of the x64 setup).
+- Emulating an x64 Windows OS on a Mac, and waiting for an ARM Windows VM before CI builds the x64 setup.
 
 ## Impact
 - Affected specs: `windows-target` (new). macOS Homebrew update behavior is constrained here so this change cannot turn the in-app updater back on for cask installs. The existing unarchived `app-updates` change stays the macOS write-up of that updater.
