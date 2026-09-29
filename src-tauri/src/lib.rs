@@ -1,3 +1,4 @@
+mod default_app;
 mod document;
 mod install_source;
 mod links;
@@ -988,6 +989,9 @@ pub fn run() {
             });
             app.set_menu(build_menu(app)?)?;
             create_main_window(app)?;
+            if let Ok(directory) = app.path().app_data_dir() {
+                default_app::claim_markdown_files_once(&directory);
+            }
 
             let pending_paths = app
                 .state::<PendingOpenPaths>()

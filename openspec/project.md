@@ -9,7 +9,7 @@ Key features:
 - Light and dark mode via `prefers-color-scheme`
 - Screen flash + "Updated" badge on each reload
 - Copy always copies raw Markdown source (not rendered HTML)
-- File opening via: Cmd/Ctrl+O, button, drag-and-drop, Finder or Explorer association, or CLI
+- File opening via: Cmd/Ctrl+O, button, drag-and-drop, Finder or Explorer association, or CLI. A packaged install becomes the default app for `.md` and `.markdown` on first launch (Mac) or during the NSIS install (Windows). Development builds do not change that default.
 - Bundled `livemark` CLI. On macOS it is a POSIX shell script installed to `/usr/local/bin`. On Windows the menu writes `livemark.cmd` and adds it to the user PATH.
 
 ## Tech Stack

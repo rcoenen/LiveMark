@@ -50,6 +50,8 @@ xattr -cr /Applications/LiveMark.app
 
 A copy installed from the DMG updates from inside the app. A Homebrew install does not: Homebrew stays the only writer of that copy.
 
+The first time you open a packaged copy of this version, it becomes the app for `.md` and `.markdown` files. A double-click then opens that file in LiveMark.
+
 ### Windows
 
 Experimental pre-release only.
@@ -59,6 +61,8 @@ Experimental pre-release only.
 This is the x64 installer for Intel and AMD PCs. It installs for the current user, under `%LOCALAPPDATA%\LiveMark`, and does not ask for an administrator account. The installer is unsigned. Windows SmartScreen shows **More info**, then **Run anyway**.
 
 This preview does not replace the latest Mac release or the Homebrew cask.
+
+Installers built from this version make LiveMark the app for `.md` and `.markdown` files. A double-click then opens that file in LiveMark. The preview linked above was built earlier and leaves the current app in place.
 
 ## Why LiveMark?
 

@@ -25,12 +25,24 @@ The Windows distribution SHALL be an NSIS installer for the current user. It SHA
 - **THEN** LiveMark SHALL be installed under the current user's local app data and SHALL launch
 
 #### Scenario: Explorer opens a Markdown file
-- **WHEN** a user opens a `.md` file from Explorer after installation
+- **WHEN** a user double-clicks a `.md` or `.markdown` file after installation
 - **THEN** LiveMark SHALL display that file, focusing the already running instance when one exists
+- **AND** that association SHALL replace a previous per-user default for those extensions
 
 #### Scenario: WebView2 missing
 - **WHEN** the installer runs on a machine without the WebView2 runtime
 - **THEN** the installer SHALL download the Evergreen bootstrapper and install the runtime
+
+### Requirement: Packaged builds become the default Markdown app
+A packaged install SHALL make LiveMark the current user's default application for `.md` and `.markdown` files. The Windows installer SHALL do this during installation. The packaged macOS app SHALL do this on its first launch. A development build SHALL NOT change the default application. After that first claim, a choice the user makes later SHALL be left as it is.
+
+#### Scenario: Finder double-click after the first launch
+- **WHEN** a user has launched the packaged macOS app once and then double-clicks a `.md` file
+- **THEN** LiveMark SHALL open that file
+
+#### Scenario: Development build leaves the default alone
+- **WHEN** a development build starts
+- **THEN** the system default application for `.md` files SHALL stay unchanged
 
 ### Requirement: Windows direct updates
 A release build installed by the NSIS installer SHALL be classified as a direct install. The in-app updater SHALL download the `windows-x86_64` artifact from the existing `latest.json` endpoint, verify its minisign signature, and run it. A Homebrew-managed macOS install SHALL NOT install updates itself. A development build SHALL NOT run an automatic update check.

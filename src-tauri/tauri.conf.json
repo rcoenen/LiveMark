@@ -31,8 +31,15 @@
       {
         "ext": ["md", "markdown"],
         "name": "Markdown Document",
-        "role": "Viewer",
-        "mimeType": "text/markdown"
+        "description": "Markdown Document",
+        "role": "Editor",
+        "rank": "Owner",
+        "mimeType": "text/markdown",
+        "contentTypes": ["com.livemark.markdown", "net.daringfireball.markdown"],
+        "exportedType": {
+          "identifier": "com.livemark.markdown",
+          "conformsTo": ["public.plain-text", "public.text"]
+        }
       }
     ],
     "macOS": {
@@ -44,7 +51,8 @@
         "silent": true
       },
       "nsis": {
-        "installMode": "currentUser"
+        "installMode": "currentUser",
+        "installerHooks": "windows/hooks.nsh"
       }
     }
   },

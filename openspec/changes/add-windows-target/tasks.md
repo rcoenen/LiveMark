@@ -11,6 +11,7 @@
 - [x] 2.1 Normalize watch paths (extended prefix, Windows case) and refresh sibling documents when an event hits a watched parent but no exact path. Unit tests. macOS path strings unchanged.
 - [x] 2.2 Windows Install CLI Command: write `livemark.cmd` pointing at the running exe, add its directory to the user PATH, no administrator prompt. Leave the macOS symlink path as it is.
 - [x] 2.3 Confirm NSIS registers the existing `.md` / `.markdown` associations and that a second launch focuses the running instance.
+- [x] 2.5 A packaged install becomes the default app for `.md` and `.markdown`. The NSIS installer clears the previous per-user choice. The Mac app claims it on first launch. Development builds do not.
 - [x] 2.4 Unit test: a `%LOCALAPPDATA%\LiveMark\...exe` path classifies as `direct`. Dev builds still skip the automatic update check.
 
 ## 3. Release
