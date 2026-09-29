@@ -16,12 +16,13 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["app", "dmg"],
+    "targets": ["app", "dmg", "nsis"],
     "category": "DeveloperTool",
-    "copyright": "Live-updating Markdown viewer for macOS",
+    "copyright": "Live-updating Markdown viewer",
     "icon": [
       "../build/icon.icns",
-      "../build/icon.png"
+      "../build/icon.png",
+      "../build/icon.ico"
     ],
     "resources": {
       "../resources/bin/livemark": "bin/livemark"
@@ -36,6 +37,15 @@
     ],
     "macOS": {
       "minimumSystemVersion": "11.0"
+    },
+    "windows": {
+      "webviewInstallMode": {
+        "type": "downloadBootstrapper",
+        "silent": true
+      },
+      "nsis": {
+        "installMode": "currentUser"
+      }
     }
   },
   "plugins": {

@@ -36,15 +36,16 @@ pub fn build_menu(app: &App) -> tauri::Result<Menu<Wry>> {
         .separator()
         .item(&check_updates)
         .item(&install_cli)
-        .separator()
+        .separator();
+    #[cfg(target_os = "macos")]
+    let app_menu = app_menu
         .services()
         .separator()
         .hide()
         .hide_others()
         .show_all()
-        .separator()
-        .quit()
-        .build()?;
+        .separator();
+    let app_menu = app_menu.quit().build()?;
 
     let open = MenuItemBuilder::with_id(MENU_OPEN, "Open…")
         .accelerator("CmdOrCtrl+O")
@@ -102,16 +103,17 @@ pub fn build_menu(app: &App) -> tauri::Result<Menu<Wry>> {
         .item(&reset_zoom)
         .item(&zoom_in)
         .item(&zoom_out)
-        .separator()
-        .fullscreen()
-        .build()?;
+        .separator();
+    #[cfg(target_os = "macos")]
+    let view_menu = view_menu.fullscreen();
+    let view_menu = view_menu.build()?;
 
     let window_menu = SubmenuBuilder::new(app, "Window")
         .minimize()
-        .maximize()
-        .separator()
-        .bring_all_to_front()
-        .build()?;
+        .maximize();
+    #[cfg(target_os = "macos")]
+    let window_menu = window_menu.separator().bring_all_to_front();
+    let window_menu = window_menu.build()?;
 
     MenuBuilder::new(app)
         .items(&[&app_menu, &file_menu, &edit_menu, &view_menu, &window_menu])

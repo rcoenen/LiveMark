@@ -100,6 +100,8 @@ function loadSettings(): ReloadSettings {
 
 const livemark = installLiveMarkBridge();
 
+document.documentElement.dataset.platform = /Windows/.test(navigator.userAgent) ? 'windows' : 'mac';
+
 function applyTheme(dark: boolean): void {
   document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
 }

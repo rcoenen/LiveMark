@@ -1,7 +1,7 @@
 # Project Context
 
 ## Purpose
-LiveMark is a macOS desktop application that provides live-updating Markdown preview. When a supported text file is opened, it renders styled HTML in a Tauri webview and watches the file on disk — any save triggers an instant re-render. It is a read-only viewer, not an editor.
+LiveMark is a desktop application that provides live-updating Markdown preview on macOS and Windows. When a supported text file is opened, it renders styled HTML in a Tauri webview and watches the file on disk — any save triggers an instant re-render. It is a read-only viewer, not an editor.
 
 Key features:
 - Live preview with instant updates on file save
@@ -9,20 +9,20 @@ Key features:
 - Light and dark mode via `prefers-color-scheme`
 - Screen flash + "Updated" badge on each reload
 - Copy always copies raw Markdown source (not rendered HTML)
-- File opening via: Cmd+O, button, drag-and-drop, Finder association, or CLI
-- Bundled `livemark` CLI (POSIX shell script, installable to `/usr/local/bin`)
+- File opening via: Cmd/Ctrl+O, button, drag-and-drop, Finder or Explorer association, or CLI
+- Bundled `livemark` CLI. On macOS it is a POSIX shell script installed to `/usr/local/bin`. On Windows the menu writes `livemark.cmd` and adds it to the user PATH.
 
 ## Tech Stack
-- **Runtime:** Tauri 2 using the native macOS WebView
+- **Runtime:** Tauri 2, using the native macOS WebView or Windows WebView2
 - **Backend:** Rust stable with Tauri commands/events and `notify` file watching
 - **Frontend:** TypeScript 5.3 (strict mode), targeting Safari 13.1+
 - **Markdown:** markdown-it 15 (html: true, linkify: true, typographer: true)
 - **Syntax highlighting:** highlight.js 11
 - **File watching:** notify 8 with application-level debounce and fresh reads
 - **Compilation:** `tsc --noEmit`, esbuild for the renderer, Cargo for Rust
-- **Packaging:** Tauri CLI plus a release script that produces an ad-hoc-signed `.app`, `.dmg`, and `.zip`
+- **Packaging:** Tauri CLI. macOS produces an ad-hoc-signed `.app`, `.dmg`, and `.zip`. Windows produces a per-user NSIS installer. One GitHub Release carries both.
 - **CSS:** Plain CSS with custom properties (no preprocessor or framework)
-- **Shell:** POSIX sh for the CLI helper script
+- **Shell:** POSIX sh for the macOS CLI helper. Windows uses a generated `livemark.cmd`.
 - **No web framework** — renderer uses plain TypeScript with the DOM API directly
 
 ## Project Conventions
@@ -48,7 +48,7 @@ Two-layer Tauri architecture with a narrow security boundary:
 The renderer has no shell or general filesystem capability. Local images are read by a backend command only in the context of an already-open document and returned as image data URLs. The CSP blocks scripts and limits other resource types.
 
 ### Testing Strategy
-Rust unit tests cover path validation and document registry behavior. CI runs TypeScript validation/frontend bundling, `cargo check`, unit tests, and a Tauri application build on Apple silicon macOS.
+Rust unit tests cover path validation and document registry behavior. CI runs TypeScript validation, frontend bundling, `cargo test`, and a Tauri build on Apple silicon macOS and on Windows (`nsis`).
 
 ### Git Workflow
 - Single `main` branch
@@ -59,13 +59,13 @@ Rust unit tests cover path validation and document registry behavior. CI runs Ty
 - LiveMark is a **read-only viewer** — it never writes to Markdown files
 - The copy override (Cmd+C copies Markdown source, not rendered HTML) is a deliberate UX decision. Table separator rows are normalized to `| :---- |` so Google Docs Paste from Markdown keeps the table
 - File stability: parent-directory watching plus generation-based debounce handles both in-place writes and atomic file replacement
-- The `livemark` CLI is a POSIX shell script that resolves the `.app` bundle path and uses `open -a LiveMark.app <file>`
-- CLI install uses `osascript` for privilege escalation when symlinking to `/usr/local/bin`
+- On macOS the `livemark` CLI is a POSIX shell script that resolves the `.app` bundle path and uses `open -a LiveMark.app`. Installing it uses `osascript` when linking to `/usr/local/bin` needs an administrator.
+- On Windows the menu writes `livemark.cmd` next to a user PATH entry. That install does not ask for an administrator.
 - `package.json` is the release version source; Tauri reads it directly and Release Please mirrors it to `src-tauri/Cargo.toml`
 
 ## Important Constraints
-- **macOS only** — Apple-specific fonts, `osascript`, and the `open -a` CLI pattern; arm64 distribution requires macOS 11 (Big Sur) or newer
-- **arm64 only** distribution currently (no Intel/universal builds)
+- **macOS distribution** is Apple silicon only and requires macOS 11 (Big Sur) or newer. There is no Intel build.
+- **Windows distribution** is x64 NSIS, per user, unsigned. WebView2 is installed by the bootstrapper when it is missing.
 - **Security model:** least-privilege Tauri capabilities, registered application commands, no shell plugin, no general filesystem plugin, and a restrictive CSP
 - **No network access by the app itself** — no telemetry, no API calls. The only network requests are remote `http(s)` images referenced by a document, and links the user opens in their browser
 - **App bundle ID:** `com.livemark.app`

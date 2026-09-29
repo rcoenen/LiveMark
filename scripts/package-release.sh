@@ -44,6 +44,7 @@ hdiutil create \
   -format UDZO \
   "$DMG"
 ditto -c -k --sequesterRsrc --keepParent "$APP" "$ZIP"
+cp "$DMG" "dist/LiveMark-mac.dmg"
 
 # Updater bundle: a plain tar.gz of the sealed .app, signed with the minisign
 # keypair whose public key is embedded in tauri.conf.json.
@@ -71,7 +72,7 @@ fs.writeFileSync("dist/latest.json", `${JSON.stringify(manifest, null, 2)}\n`);
 hdiutil verify "$DMG"
 (
   cd dist
-  shasum -a 256 "$(basename "$DMG")" "$(basename "$ZIP")" "$(basename "$UPDATER_TGZ")" > SHA256SUMS.txt
+  shasum -a 256 "$(basename "$DMG")" LiveMark-mac.dmg "$(basename "$ZIP")" "$(basename "$UPDATER_TGZ")" > SHA256SUMS.txt
 )
 
 printf 'Release artifacts:\n  %s\n  %s\n  %s\n  %s\n  %s\n  %s\n' \

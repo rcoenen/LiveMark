@@ -222,6 +222,24 @@ body.is-rail-resizing {
   height: 43px;
 }
 
+/* Windows draws its own title bar, so the traffic-light inset is unused. */
+html[data-platform="windows"] .rail__titlebar {
+  height: 0;
+}
+
+html[data-platform="windows"] .workspace__titlebar {
+  display: none;
+}
+
+html[data-platform="windows"] .rail-toggle {
+  top: 8px;
+}
+
+html[data-platform="windows"].is-rail-open .rail-toggle {
+  top: 8px;
+  left: 8px;
+}
+
 .rail__heading {
   padding: 12px 14px 10px;
   font-size: 10px;

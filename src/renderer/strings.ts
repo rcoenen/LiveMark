@@ -1,4 +1,10 @@
 // Every piece of interface copy lives here so the app can be localised later. Document content is never translated.
+
+function shortcut(mac: string, windows: string): string {
+  const onWindows = typeof navigator !== 'undefined' && /Windows/.test(navigator.userAgent);
+  return onWindows ? windows : mac;
+}
+
 const STRINGS = {
   'app.name': 'LiveMark',
   'rail.label': 'Open documents',
@@ -7,7 +13,9 @@ const STRINGS = {
   'rail.documentsCount': 'Documents · {count}',
   'rail.watching.one': 'watching {count} file',
   'rail.watching.other': 'watching {count} files',
-  'rail.closeHint': '⌘W close',
+  'rail.closeHint': shortcut('⌘W close', 'Ctrl+W close'),
+  'shortcut.goToFile': shortcut('⌘P', 'Ctrl+P'),
+  'shortcut.nextChange': shortcut('⌘⇧N', 'Ctrl+Shift+N'),
   'rail.theme': 'Dark',
   'rail.themeTitle': 'Toggle light/dark mode',
   'rail.show': 'Show documents',
