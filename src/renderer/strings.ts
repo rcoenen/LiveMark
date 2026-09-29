@@ -145,6 +145,9 @@ const STRINGS = {
   'empty.lead': 'Open a Markdown file to get started',
   'empty.open': 'Open File...',
   'empty.hint': 'Or drag and drop files, or pass file paths as arguments',
+  'about.label': 'About LiveMark',
+  'about.description': 'Live-updating Markdown viewer.',
+  'about.close': 'Close',
 } as const;
 
 export type StringKey = keyof typeof STRINGS;

@@ -31,8 +31,15 @@ pub fn build_menu(app: &App) -> tauri::Result<Menu<Wry>> {
     .build(app)?;
     let install_cli =
         MenuItemBuilder::with_id(MENU_INSTALL_CLI, "Install CLI Command…").build(app)?;
-    let app_menu = SubmenuBuilder::new(app, "LiveMark")
-        .about(None)
+    let app_menu = SubmenuBuilder::new(app, "LiveMark");
+    #[cfg(target_os = "macos")]
+    let app_menu = app_menu.about(None);
+    #[cfg(not(target_os = "macos"))]
+    let app_menu = app_menu.item(
+        &MenuItemBuilder::with_id(format!("{RENDERER_COMMAND_PREFIX}about"), "About LiveMark")
+            .build(app)?,
+    );
+    let app_menu = app_menu
         .separator()
         .item(&check_updates)
         .item(&install_cli)
