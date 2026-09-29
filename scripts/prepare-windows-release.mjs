@@ -10,8 +10,11 @@ if (arch !== 'x64' && arch !== 'arm64') {
 
 const platformKey = arch === 'arm64' ? 'windows-aarch64' : 'windows-x86_64';
 const version = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')).version;
-const versioned = `LiveMark_${version}_${arch}-setup.exe`;
-const source = join('src-tauri', 'target', 'release', 'bundle', 'nsis', versioned);
+const tauriName = `LiveMark_${version}_${arch}-setup.exe`;
+const targetDir = arch === 'arm64' ? 'aarch64-pc-windows-msvc' : 'release';
+const source = join('src-tauri', 'target', targetDir, 'release', 'bundle', 'nsis', tauriName);
+const versioned = `LiveMark-${version}-win-${arch}-setup.exe`;
+const alias = `LiveMark-win-${arch}-setup.exe`;
 
 if (!existsSync(source)) {
   console.error(`missing ${source}`);
@@ -21,6 +24,7 @@ if (!existsSync(source)) {
 mkdirSync('dist', { recursive: true });
 const destination = join('dist', versioned);
 copyFileSync(source, destination);
+copyFileSync(destination, join('dist', alias));
 
 const signed = spawnSync('npx', ['tauri', 'signer', 'sign', destination], {
   stdio: 'inherit',

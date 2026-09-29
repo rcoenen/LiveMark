@@ -57,7 +57,7 @@ if [ -z "$VERSION" ] || [ "$VERSION" = "latest" ]; then
   exit 1
 fi
 
-DMG_NAME="${APP_NAME}-${VERSION}-arm64.dmg"
+DMG_NAME="${APP_NAME}-${VERSION}-mac-arm64.dmg"
 BASE="${RELEASES_URL}/download/${TAG}"
 DMG="${TMP}/${DMG_NAME}"
 

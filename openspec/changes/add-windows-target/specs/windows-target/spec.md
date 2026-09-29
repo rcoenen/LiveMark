@@ -1,17 +1,17 @@
 ## ADDED Requirements
 
 ### Requirement: One product and one version
-LiveMark SHALL build Windows from the same repository, the same `src-tauri` tree, and the same frontend as macOS. A published version SHALL use one version number and SHALL attach the macOS artifacts and the Windows NSIS installer to the same GitHub Release.
+LiveMark SHALL build Windows from the same repository, the same `src-tauri` tree, and the same frontend as macOS. A published version SHALL use one version number and SHALL attach the macOS artifacts and both Windows NSIS installers to the same GitHub Release.
 
 #### Scenario: One tag ships both platforms
 - **WHEN** a version is published
-- **THEN** the GitHub Release SHALL contain the macOS DMG and exactly one Windows installer, `LiveMark_<version>_x64-setup.exe`
-- **AND** the release SHALL NOT contain a Windows ARM64 installer, a 32-bit installer, or a second copy of the setup
+- **THEN** the GitHub Release SHALL contain the macOS DMG and the two Windows installers, `LiveMark-<version>-win-x64-setup.exe` and `LiveMark-<version>-win-arm64-setup.exe`
+- **AND** the release SHALL NOT contain a 32-bit installer
 
-#### Scenario: Updater lists x64 only
+#### Scenario: Updater lists both Windows architectures
 - **WHEN** `latest.json` is published
-- **THEN** the only Windows platform key SHALL be `windows-x86_64`
-- **AND** its URL SHALL point at `LiveMark_<version>_x64-setup.exe` on that tag
+- **THEN** the Windows platform keys SHALL be `windows-x86_64` and `windows-aarch64`
+- **AND** their URLs SHALL point at `LiveMark-<version>-win-x64-setup.exe` and `LiveMark-<version>-win-arm64-setup.exe` on that tag
 
 #### Scenario: No second source tree
 - **WHEN** the Windows target is built
@@ -45,7 +45,7 @@ A packaged install SHALL make LiveMark the current user's default application fo
 - **THEN** the system default application for `.md` files SHALL stay unchanged
 
 ### Requirement: Windows direct updates
-A release build installed by the NSIS installer SHALL be classified as a direct install. The in-app updater SHALL download the `windows-x86_64` artifact from the existing `latest.json` endpoint, verify its minisign signature, and run it. A Homebrew-managed macOS install SHALL NOT install updates itself. A development build SHALL NOT run an automatic update check.
+A release build installed by the NSIS installer SHALL be classified as a direct install. The in-app updater SHALL download the matching `windows-x86_64` or `windows-aarch64` artifact from the existing `latest.json` endpoint, verify its minisign signature, and run it. A Homebrew-managed macOS install SHALL NOT install updates itself. A development build SHALL NOT run an automatic update check.
 
 #### Scenario: Direct Windows install applies an update
 - **WHEN** a directly installed Windows copy finds a newer version and the user confirms
@@ -53,7 +53,7 @@ A release build installed by the NSIS installer SHALL be classified as a direct 
 
 #### Scenario: Manifest lists both platforms
 - **WHEN** a release is published
-- **THEN** `latest.json` SHALL contain a `darwin-aarch64` entry and a `windows-x86_64` entry for that version
+- **THEN** `latest.json` SHALL contain a `darwin-aarch64` entry and both `windows-x86_64` and `windows-aarch64` entries for that version
 
 #### Scenario: Homebrew install stays instruction-only
 - **WHEN** a Homebrew-installed macOS copy finds a newer version
@@ -113,27 +113,14 @@ The Windows executable, NSIS installer, and Start Menu shortcut SHALL use `build
 - **WHEN** the Windows bundle is built
 - **THEN** the bundle icon SHALL be `build/icon.ico` produced from `build/icon.png`
 
-### Requirement: CI builds the installer
-A pull request SHALL build the Windows NSIS installer on `windows-latest` from the same commit that builds the macOS app.
+### Requirement: CI builds the installers
+A pull request SHALL build the Windows NSIS installers on `windows-latest` from the same commit that builds the macOS app.
 
 #### Scenario: Pull request build
 - **WHEN** a pull request is built
-- **THEN** the Windows job SHALL produce an x64 NSIS installer and upload it as an Actions artifact
+- **THEN** the Windows jobs SHALL produce the x64 and arm64 NSIS installers and upload them as Actions artifacts
 - **AND** that run SHALL NOT create a GitHub Release
 - **AND** the macOS job SHALL still build the macOS app
-
-### Requirement: A new release stays off latest until it is promoted
-The release workflow SHALL mark a newly created GitHub Release as a pre-release. A pre-release SHALL NOT replace the latest release and SHALL NOT bump the Homebrew cask. Promoting the release SHALL clear the pre-release flag, mark that tag as the latest release, and bump the cask to that version's DMG.
-
-#### Scenario: Publish leaves latest unchanged
-- **WHEN** the release workflow publishes a new tag
-- **THEN** the GitHub Release SHALL be a pre-release
-- **AND** the Homebrew cask SHALL stay on the previous version
-
-#### Scenario: Promote after the Windows smoke test
-- **WHEN** the release is promoted
-- **THEN** the tag SHALL be the latest release
-- **AND** the Homebrew cask SHALL use that version's DMG
 
 ### Requirement: Unsigned install is documented
 The README SHALL describe the Mac installer and the Windows NSIS installer. The Windows instructions SHALL include the SmartScreen confirmation required to run the unsigned installer.
@@ -152,8 +139,8 @@ The README header SHALL show a Mac download badge and a Windows download badge f
 #### Scenario: Header names both installers
 - **WHEN** the README is rendered
 - **THEN** the header SHALL show a Mac download badge linking to `LiveMark-mac.dmg` on the latest release
-- **AND** a Windows download badge linking to the releases page
-- **AND** the Windows install section SHALL name `LiveMark_<version>_x64-setup.exe` as the only Windows package
+- **AND** a Windows download badge linking to `LiveMark-win-x64-setup.exe` on the latest release
+- **AND** the Windows install section SHALL name both `LiveMark-<version>-win-x64-setup.exe` and `LiveMark-<version>-win-arm64-setup.exe`
 
 #### Scenario: Counts follow the packages
 - **WHEN** the download badges are rendered

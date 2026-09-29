@@ -7,14 +7,9 @@ on:
   workflow_dispatch:
     inputs:
       release_tag:
-        description: Existing tag to build and publish, or to promote, such as v1.7.0
+        description: Existing tag to build and publish, such as v1.7.0
         required: true
         type: string
-      promote:
-        description: Mark this tag as the latest release and bump the Homebrew cask. Does not rebuild.
-        required: false
-        type: boolean
-        default: false
 
 permissions:
   contents: write
@@ -37,15 +32,9 @@ jobs:
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
 
-      - name: Hold the release off latest
-        if: steps.release.outputs.release_created == 'true'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release edit "${{ steps.release.outputs.tag_name }}" --prerelease
-
   build-macos:
     needs: release-please
-    if: ${{ always() && github.event.inputs.promote != 'true' && (github.event_name == 'workflow_dispatch' || needs.release-please.outputs.release_created == 'true') }}
+    if: ${{ always() && (github.event_name == 'workflow_dispatch' || needs.release-please.outputs.release_created == 'true') }}
     runs-on: macos-15
     outputs:
       release_tag: ${{ steps.tag.outputs.release_tag }}
@@ -98,7 +87,7 @@ jobs:
           codesign --display --verbose=4 "$APP" 2>&1 | grep -q "Signature=adhoc"
 
       - name: Verify DMG
-        run: hdiutil verify dist/LiveMark-*-arm64.dmg
+        run: hdiutil verify dist/LiveMark-*-mac-arm64.dmg
 
       - name: Stage macOS artifacts
         run: |
@@ -118,7 +107,7 @@ jobs:
 
   build-windows:
     needs: release-please
-    if: ${{ always() && github.event.inputs.promote != 'true' && (github.event_name == 'workflow_dispatch' || needs.release-please.outputs.release_created == 'true') }}
+    if: ${{ always() && (github.event_name == 'workflow_dispatch' || needs.release-please.outputs.release_created == 'true') }}
     runs-on: windows-latest
     env:
       RELEASE_TAG: ${{ github.event.inputs.release_tag || needs.release-please.outputs.tag_name }}
@@ -163,14 +152,15 @@ jobs:
         with:
           name: windows-release
           path: |
-            dist/LiveMark_*_x64-setup.exe
-            dist/LiveMark_*_x64-setup.exe.sig
+            dist/LiveMark-*-win-x64-setup.exe
+            dist/LiveMark-*-win-x64-setup.exe.sig
+            dist/LiveMark-win-x64-setup.exe
             dist/windows-x64-platform.json
           if-no-files-found: error
 
   build-windows-arm:
     needs: release-please
-    if: ${{ always() && github.event.inputs.promote != 'true' && (github.event_name == 'workflow_dispatch' || needs.release-please.outputs.release_created == 'true') }}
+    if: ${{ always() && (github.event_name == 'workflow_dispatch' || needs.release-please.outputs.release_created == 'true') }}
     runs-on: windows-latest
     env:
       RELEASE_TAG: ${{ github.event.inputs.release_tag || needs.release-please.outputs.tag_name }}
@@ -217,8 +207,9 @@ jobs:
         with:
           name: windows-arm-release
           path: |
-            dist/LiveMark_*_arm64-setup.exe
-            dist/LiveMark_*_arm64-setup.exe.sig
+            dist/LiveMark-*-win-arm64-setup.exe
+            dist/LiveMark-*-win-arm64-setup.exe.sig
+            dist/LiveMark-win-arm64-setup.exe
             dist/windows-arm64-platform.json
           if-no-files-found: error
 
@@ -249,8 +240,7 @@ jobs:
           set -euo pipefail
           mkdir -p dist
           cp parts/mac-release/LiveMark-* parts/mac-release/install.sh dist/
-          cp parts/windows-release/LiveMark_*_x64-setup.exe parts/windows-release/LiveMark_*_x64-setup.exe.sig dist/
-          cp parts/windows-arm-release/LiveMark_*_arm64-setup.exe parts/windows-arm-release/LiveMark_*_arm64-setup.exe.sig dist/
+          cp parts/windows-release/LiveMark-* parts/windows-arm-release/LiveMark-* dist/
           node scripts/merge-latest.mjs \
             parts/mac-release/latest.json \
             dist/latest.json \
@@ -258,12 +248,11 @@ jobs:
             parts/windows-arm-release/windows-arm64-platform.json
           cd dist
           sha256sum \
-            LiveMark-*-arm64.dmg \
+            LiveMark-*-mac-arm64.dmg \
             LiveMark-mac.dmg \
-            LiveMark-*-arm64-mac.zip \
-            LiveMark-*-arm64.app.tar.gz \
-            LiveMark_*_x64-setup.exe \
-            LiveMark_*_arm64-setup.exe \
+            LiveMark-*-mac-arm64-update.tar.gz \
+            LiveMark-*-win-x64-setup.exe \
+            LiveMark-*-win-arm64-setup.exe \
             > SHA256SUMS.txt
 
       - name: Create GitHub Release if needed
@@ -271,7 +260,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           if ! gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
-            gh release create "$RELEASE_TAG" --verify-tag --prerelease --title "LiveMark ${RELEASE_TAG#v}" --generate-notes
+            gh release create "$RELEASE_TAG" --verify-tag --title "LiveMark ${RELEASE_TAG#v}" --generate-notes
           fi
 
       - name: Upload release files
@@ -280,8 +269,6 @@ jobs:
         run: |
           gh release upload "$RELEASE_TAG" \
             dist/LiveMark-* \
-            dist/LiveMark_*.exe \
-            dist/LiveMark_*.exe.sig \
             dist/latest.json \
             dist/SHA256SUMS.txt \
             dist/install.sh \
@@ -292,54 +279,10 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          if [ "$(gh release view "$RELEASE_TAG" --json isPrerelease --jq .isPrerelease)" = "true" ]; then
-            echo "Pre-release stays off latest. Promote it after the Windows smoke test."
-            exit 0
-          fi
           VERSION="${RELEASE_TAG#v}"
-          SHA256="$(sha256sum "dist/LiveMark-${VERSION}-arm64.dmg" | awk '{print $1}')"
+          SHA256="$(sha256sum "dist/LiveMark-${VERSION}-mac-arm64.dmg" | awk '{print $1}')"
           if [ ! -f Casks/livemark.rb ]; then
             echo "No Homebrew cask on main; skipping"
-            exit 0
-          fi
-          perl -i -pe "s/^  version \".*\"/  version \"${VERSION}\"/" Casks/livemark.rb
-          perl -i -pe "s/^  sha256 \".*\"/  sha256 \"${SHA256}\"/" Casks/livemark.rb
-          if git diff --quiet -- Casks/livemark.rb; then
-            echo "Homebrew cask already up to date"
-            exit 0
-          fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add Casks/livemark.rb
-          git commit -m "chore(brew): bump livemark cask to ${VERSION}"
-          git push origin main
-
-  promote:
-    if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.promote == 'true' }}
-    runs-on: ubuntu-latest
-    steps:
-      - name: Check out main
-        uses: actions/checkout@v6
-        with:
-          ref: main
-
-      - name: Promote the release and bump the cask
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          RELEASE_TAG: ${{ github.event.inputs.release_tag }}
-        run: |
-          set -euo pipefail
-          names="$(gh release view "$RELEASE_TAG" --json assets --jq '.assets[].name')"
-          printf '%s\n' "$names" | grep -q '_x64-setup\.exe$'
-          printf '%s\n' "$names" | grep -q '_arm64-setup\.exe$'
-          printf '%s\n' "$names" | grep -q -- '-arm64\.dmg$'
-          gh release edit "$RELEASE_TAG" --prerelease=false --latest
-          mkdir -p dist
-          gh release download "$RELEASE_TAG" --pattern 'LiveMark-*-arm64.dmg' --dir dist --clobber
-          VERSION="${RELEASE_TAG#v}"
-          SHA256="$(sha256sum "dist/LiveMark-${VERSION}-arm64.dmg" | awk '{print $1}')"
-          if [ ! -f Casks/livemark.rb ]; then
-            echo "No Homebrew cask on main; release is latest"
             exit 0
           fi
           perl -i -pe "s/^  version \".*\"/  version \"${VERSION}\"/" Casks/livemark.rb

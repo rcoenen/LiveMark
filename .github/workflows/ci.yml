@@ -77,12 +77,17 @@ jobs:
       - name: Build Windows installer
         run: npm run tauri build -- --bundles nsis
 
+      - name: Rename setup to release naming
+        run: |
+          Get-ChildItem 'src-tauri/target/release/bundle/nsis/*_x64-setup.exe' |
+            Rename-Item -NewName { $_.Name -replace '^LiveMark_(.+)_x64-setup\.exe$', 'LiveMark-$1-win-x64-setup.exe' }
+
       # The real x64 setup, downloadable from this run. This is not a GitHub Release.
       - name: Upload x64 setup
         uses: actions/upload-artifact@v4
         with:
           name: LiveMark-x64-setup
-          path: src-tauri/target/release/bundle/nsis/*_x64-setup.exe
+          path: src-tauri/target/release/bundle/nsis/*win-x64-setup.exe
           if-no-files-found: error
           retention-days: 14
 
@@ -120,11 +125,16 @@ jobs:
       - name: Build Windows ARM installer
         run: npm run tauri build -- --bundles nsis --target aarch64-pc-windows-msvc
 
+      - name: Rename setup to release naming
+        run: |
+          Get-ChildItem 'src-tauri/target/aarch64-pc-windows-msvc/release/bundle/nsis/*_arm64-setup.exe' |
+            Rename-Item -NewName { $_.Name -replace '^LiveMark_(.+)_arm64-setup\.exe$', 'LiveMark-$1-win-arm64-setup.exe' }
+
       # The real arm64 setup, downloadable from this run. This is not a GitHub Release.
       - name: Upload arm64 setup
         uses: actions/upload-artifact@v4
         with:
           name: LiveMark-arm64-setup
-          path: src-tauri/target/release/bundle/nsis/*_arm64-setup.exe
+          path: src-tauri/target/aarch64-pc-windows-msvc/release/bundle/nsis/*win-arm64-setup.exe
           if-no-files-found: error
           retention-days: 14

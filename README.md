@@ -6,7 +6,7 @@
 
 <p align="center">
   <a href="https://github.com/rcoenen/LiveMark/releases/latest/download/LiveMark-mac.dmg"><img alt="Download Mac" src="https://img.shields.io/github/v/release/rcoenen/LiveMark?sort=semver&amp;display_name=tag&amp;style=for-the-badge&amp;label=download%20mac&amp;color=7C3AED"></a>
-  <a href="https://github.com/rcoenen/LiveMark/releases"><img alt="Download Windows" src="https://img.shields.io/github/v/release/rcoenen/LiveMark?sort=semver&amp;display_name=tag&amp;style=for-the-badge&amp;label=download%20windows&amp;color=7C3AED"></a>
+  <a href="https://github.com/rcoenen/LiveMark/releases/latest/download/LiveMark-win-x64-setup.exe"><img alt="Download Windows" src="https://img.shields.io/github/v/release/rcoenen/LiveMark?sort=semver&amp;display_name=tag&amp;style=for-the-badge&amp;label=download%20windows&amp;color=7C3AED"></a>
   <a href="https://github.com/rcoenen/LiveMark/releases"><img alt="Mac downloads" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Frcoenen%2FLiveMark%2Fdownload-badges%2Fmac.json&amp;style=for-the-badge"></a>
   <a href="https://github.com/rcoenen/LiveMark/releases"><img alt="Windows downloads" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Frcoenen%2FLiveMark%2Fdownload-badges%2Fwindows.json&amp;style=for-the-badge"></a>
   <a href="https://github.com/rcoenen/LiveMark/actions/workflows/ci.yml"><img alt="Build" src="https://img.shields.io/github/actions/workflow/status/rcoenen/LiveMark/ci.yml?branch=main&amp;style=for-the-badge&amp;label=build"></a>
@@ -54,15 +54,11 @@ The first time you open a packaged copy of this version, it becomes the app for 
 
 ### Windows
 
-Experimental pre-release only.
+Download the [x64 installer](https://github.com/rcoenen/LiveMark/releases/latest/download/LiveMark-win-x64-setup.exe) for Intel and AMD PCs, or the [arm64 installer](https://github.com/rcoenen/LiveMark/releases/latest/download/LiveMark-win-arm64-setup.exe) for ARM PCs.
 
-[LiveMark_1.6.3_x64-setup.exe](https://github.com/rcoenen/LiveMark/releases/download/v1.6.3-windows.1/LiveMark_1.6.3_x64-setup.exe)
+The installer runs for the current user, under `%LOCALAPPDATA%\LiveMark`, and does not ask for an administrator account. It is unsigned; Windows SmartScreen shows **More info**, then **Run anyway**.
 
-This is the x64 installer for Intel and AMD PCs. It installs for the current user, under `%LOCALAPPDATA%\LiveMark`, and does not ask for an administrator account. The installer is unsigned. Windows SmartScreen shows **More info**, then **Run anyway**.
-
-This preview does not replace the latest Mac release or the Homebrew cask.
-
-Installers built from this version make LiveMark the app for `.md` and `.markdown` files. A double-click then opens that file in LiveMark. The preview linked above was built earlier and leaves the current app in place.
+Installers built from this version make LiveMark the app for `.md` and `.markdown` files. A double-click then opens that file in LiveMark.
 
 ## Why LiveMark?
 
@@ -91,7 +87,7 @@ On Mac the command is linked to `/usr/local/bin`. On Windows it is added to your
 
 On Mac: Node.js 20+, npm, the stable Rust toolchain, and Xcode Command Line Tools on Apple silicon macOS 11 or newer.
 
-On Windows: Node.js 20+, npm, the stable Rust toolchain with the MSVC target, and WebView2 (already present on Windows 11 and current Windows 10).
+On Windows: Node.js 20+, npm, the stable Rust toolchain with the MSVC target (and the `aarch64-pc-windows-msvc` target for the arm64 build), and WebView2 (already present on Windows 11 and current Windows 10).
 
 ```sh
 npm ci
@@ -106,4 +102,4 @@ npm run build
 npm run dist
 ```
 
-The macOS release command writes the ad-hoc-signed app, DMG, zip, and checksums to `src-tauri/target/release/bundle/macos/` and `dist/`. A published tag builds that DMG and one Windows setup, `LiveMark_<version>_x64-setup.exe`, together. That release stays a pre-release until it is promoted, so it does not replace the latest release or the Homebrew cask.
+The macOS release command writes the ad-hoc-signed app, DMG, and updater bundle to `src-tauri/target/release/bundle/macos/` and `dist/`. A published tag builds the macOS DMG and both Windows installers (`LiveMark-<version>-win-x64-setup.exe` and `LiveMark-<version>-win-arm64-setup.exe`) together, ships them in one release, and bumps the Homebrew cask.

@@ -4,19 +4,19 @@
 LiveMark is the same live Markdown viewer on every machine it runs on. Today that machine can only be an Apple silicon Mac. Windows users need the same app, the same version, and the same features, built from this repository.
 
 ## What Changes
-- Add a Windows x64 build target beside the existing macOS target. One `src-tauri/` tree, one frontend, one version number, one GitHub Release per tag.
-- Ship a per-user NSIS installer (`LiveMark_<version>_x64-setup.exe`) that needs no administrator and no Authenticode certificate. WebView2 uses Tauri's download bootstrapper.
+- Add Windows x64 and arm64 build targets beside the existing macOS target. One `src-tauri/` tree, one frontend, one version number, one GitHub Release per tag.
+- Ship a per-user NSIS installer (`LiveMark-<version>-win-x64-setup.exe` and `LiveMark-<version>-win-arm64-setup.exe`) that needs no administrator and no Authenticode certificate. WebView2 uses Tauri's download bootstrapper.
 - Add `build/icon.ico`, generated from `build/icon.png`, and reference it from `bundle.icon`.
 - Keep the Tauri updater and `latest.json`. A Windows release install is `direct` and may update itself. Homebrew installs on Mac stay instruction-only.
 - Gate macOS-only menu items, overlay title-bar insets, and the POSIX `livemark` script. Windows gets a native title bar, Ctrl shortcut labels, a `livemark.cmd` installed onto the user PATH, and close-quits instead of close-hides.
 - Normalize watched paths so a save still refreshes when Windows differs in drive-letter case or the `\\?\` prefix.
-- Build the NSIS installer on `windows-latest` in CI and upload that x64 setup as an Actions artifact. That run does not create a GitHub Release.
-- The release workflow publishes the same tag as the DMG and merges both platforms into one `latest.json`, with Windows only under `windows-x86_64`. The new release is a pre-release, so it does not become latest and the Homebrew cask stays put until the release is promoted after a Windows smoke test.
-- Document both installers in the README, including the SmartScreen step. Replace the single "download the dmg" badge and the one total download counter with a Mac badge, a Windows badge, and a separate package-download count for each. The Windows package on a release is only `LiveMark_<version>_x64-setup.exe`.
+- Build the NSIS installers on `windows-latest` in CI and upload those setups as Actions artifacts. That run does not create a GitHub Release.
+- The release workflow publishes the same tag as the DMG, ships both platforms together as the latest release, and merges the platforms into one `latest.json` with `windows-x86_64` and `windows-aarch64`. The Homebrew cask bumps on every release.
+- Document both installers in the README, including the SmartScreen step. Replace the single "download the dmg" badge and the one total download counter with a Mac badge, a Windows badge, and a separate package-download count for each. The Windows packages on a release are `LiveMark-<version>-win-x64-setup.exe` and `LiveMark-<version>-win-arm64-setup.exe`, each with a stable `LiveMark-win-<arch>-setup.exe` alias.
 
 ## Non-goals
 - A second repo, a `windows/` source tree, or a second version line.
-- Microsoft Store, winget, Scoop, a portable zip, an MSI, an Authenticode or EV certificate, a custom `.md` file icon, and a second Windows installer (ARM64, 32-bit, or a stable alias of the x64 setup).
+- Microsoft Store, winget, Scoop, a portable zip, an MSI, an Authenticode or EV certificate, a custom `.md` file icon, and a 32-bit installer.
 - Emulating an x64 Windows OS on a Mac, and waiting for an ARM Windows VM before CI builds the x64 setup.
 
 ## Impact

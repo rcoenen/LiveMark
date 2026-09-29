@@ -1,7 +1,7 @@
 #!/bin/sh
 
-# Packages the LiveMark release artifacts: DMG, zip, checksums, and the signed
-# updater bundle (`*.app.tar.gz` + `.sig` + `latest.json`) consumed by
+# Packages the LiveMark release artifacts: DMG, checksums, and the signed
+# updater bundle (`*-update.tar.gz` + `.sig` + `latest.json`) consumed by
 # tauri-plugin-updater. Signing the updater bundle requires either
 # TAURI_SIGNING_PRIVATE_KEY or TAURI_SIGNING_PRIVATE_KEY_PATH in the
 # environment (plus TAURI_SIGNING_PRIVATE_KEY_PASSWORD when the key has one).
@@ -10,9 +10,8 @@ set -eu
 
 VERSION="$(node -p "require('./package.json').version")"
 APP="src-tauri/target/release/bundle/macos/LiveMark.app"
-DMG="dist/LiveMark-${VERSION}-arm64.dmg"
-ZIP="dist/LiveMark-${VERSION}-arm64-mac.zip"
-UPDATER_TGZ="dist/LiveMark-${VERSION}-arm64.app.tar.gz"
+DMG="dist/LiveMark-${VERSION}-mac-arm64.dmg"
+UPDATER_TGZ="dist/LiveMark-${VERSION}-mac-arm64-update.tar.gz"
 STAGING_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/livemark-release.XXXXXX")"
 
 cleanup() {
@@ -36,14 +35,13 @@ mkdir -p "$STAGING_ROOT/dmg" dist
 ditto "$APP" "$STAGING_ROOT/dmg/LiveMark.app"
 ln -s /Applications "$STAGING_ROOT/dmg/Applications"
 
-rm -f "$DMG" "$ZIP" "$UPDATER_TGZ" "$UPDATER_TGZ.sig" dist/latest.json dist/SHA256SUMS.txt
+rm -f "$DMG" "$UPDATER_TGZ" "$UPDATER_TGZ.sig" dist/latest.json dist/SHA256SUMS.txt
 hdiutil create \
   -volname "LiveMark" \
   -srcfolder "$STAGING_ROOT/dmg" \
   -ov \
   -format UDZO \
   "$DMG"
-ditto -c -k --sequesterRsrc --keepParent "$APP" "$ZIP"
 cp "$DMG" "dist/LiveMark-mac.dmg"
 
 # Updater bundle: a plain tar.gz of the sealed .app, signed with the minisign
@@ -62,7 +60,7 @@ const manifest = {
   platforms: {
     "darwin-aarch64": {
       signature,
-      url: `https://github.com/rcoenen/LiveMark/releases/download/v${version}/LiveMark-${version}-arm64.app.tar.gz`,
+      url: `https://github.com/rcoenen/LiveMark/releases/download/v${version}/LiveMark-${version}-mac-arm64-update.tar.gz`,
     },
   },
 };
@@ -72,8 +70,8 @@ fs.writeFileSync("dist/latest.json", `${JSON.stringify(manifest, null, 2)}\n`);
 hdiutil verify "$DMG"
 (
   cd dist
-  shasum -a 256 "$(basename "$DMG")" LiveMark-mac.dmg "$(basename "$ZIP")" "$(basename "$UPDATER_TGZ")" > SHA256SUMS.txt
+  shasum -a 256 "$(basename "$DMG")" LiveMark-mac.dmg "$(basename "$UPDATER_TGZ")" > SHA256SUMS.txt
 )
 
-printf 'Release artifacts:\n  %s\n  %s\n  %s\n  %s\n  %s\n  %s\n' \
-  "$DMG" "$ZIP" "$UPDATER_TGZ" "$UPDATER_TGZ.sig" dist/latest.json dist/SHA256SUMS.txt
+printf 'Release artifacts:\n  %s\n  %s\n  %s\n  %s\n  %s\n' \
+  "$DMG" "$UPDATER_TGZ" "$UPDATER_TGZ.sig" dist/latest.json dist/SHA256SUMS.txt
