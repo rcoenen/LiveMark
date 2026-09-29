@@ -52,11 +52,13 @@ A copy installed from the DMG updates from inside the app. A Homebrew install do
 
 ### Windows
 
-The Windows package is one file, `LiveMark_<version>_x64-setup.exe`, on the same [release](https://github.com/rcoenen/LiveMark/releases) as the Mac DMG. It is the x64 installer for Intel and AMD PCs. Run it. It installs for the current user, under `%LOCALAPPDATA%\LiveMark`, and does not ask for an administrator account.
+Experimental pre-release only.
 
-The installer is unsigned. Windows SmartScreen shows **More info**, then **Run anyway**.
+[LiveMark_1.6.3_x64-setup.exe](https://github.com/rcoenen/LiveMark/releases/download/v1.6.3-windows.1/LiveMark_1.6.3_x64-setup.exe)
 
-A copy installed this way updates from inside the app.
+This is the x64 installer for Intel and AMD PCs. It installs for the current user, under `%LOCALAPPDATA%\LiveMark`, and does not ask for an administrator account. The installer is unsigned. Windows SmartScreen shows **More info**, then **Run anyway**.
+
+This preview does not replace the latest Mac release or the Homebrew cask.
 
 ## Why LiveMark?
 
