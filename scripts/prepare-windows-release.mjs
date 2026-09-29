@@ -2,8 +2,15 @@ import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from
 import { spawnSync } from 'node:child_process';
 import { join } from 'node:path';
 
+const arch = process.argv[2] ?? 'x64';
+if (arch !== 'x64' && arch !== 'arm64') {
+  console.error('usage: node scripts/prepare-windows-release.mjs [x64|arm64]');
+  process.exit(1);
+}
+
+const platformKey = arch === 'arm64' ? 'windows-aarch64' : 'windows-x86_64';
 const version = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')).version;
-const versioned = `LiveMark_${version}_x64-setup.exe`;
+const versioned = `LiveMark_${version}_${arch}-setup.exe`;
 const source = join('src-tauri', 'target', 'release', 'bundle', 'nsis', versioned);
 
 if (!existsSync(source)) {
@@ -25,8 +32,10 @@ if (signed.status !== 0) {
 
 const signature = readFileSync(`${destination}.sig`, 'utf8').trim();
 const platform = {
-  signature,
-  url: `https://github.com/rcoenen/LiveMark/releases/download/v${version}/${versioned}`,
+  [platformKey]: {
+    signature,
+    url: `https://github.com/rcoenen/LiveMark/releases/download/v${version}/${versioned}`,
+  },
 };
-writeFileSync(join('dist', 'windows-platform.json'), `${JSON.stringify(platform, null, 2)}\n`);
+writeFileSync(join('dist', `windows-${arch}-platform.json`), `${JSON.stringify(platform, null, 2)}\n`);
 console.log(`Signed ${destination}`);

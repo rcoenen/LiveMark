@@ -156,7 +156,7 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: |
           npm run tauri build -- --bundles nsis
-          node scripts/prepare-windows-release.mjs
+          node scripts/prepare-windows-release.mjs x64
 
       - name: Upload Windows artifacts
         uses: actions/upload-artifact@v4
@@ -165,12 +165,66 @@ jobs:
           path: |
             dist/LiveMark_*_x64-setup.exe
             dist/LiveMark_*_x64-setup.exe.sig
-            dist/windows-platform.json
+            dist/windows-x64-platform.json
+          if-no-files-found: error
+
+  build-windows-arm:
+    needs: release-please
+    if: ${{ always() && github.event.inputs.promote != 'true' && (github.event_name == 'workflow_dispatch' || needs.release-please.outputs.release_created == 'true') }}
+    runs-on: windows-latest
+    env:
+      RELEASE_TAG: ${{ github.event.inputs.release_tag || needs.release-please.outputs.tag_name }}
+    steps:
+      - name: Check out release tag
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ env.RELEASE_TAG }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-pc-windows-msvc
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Test and build application
+        run: |
+          npm test
+          npm run build
+
+      - name: Package Windows ARM installer
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          npm run tauri build -- --bundles nsis --target aarch64-pc-windows-msvc
+          node scripts/prepare-windows-release.mjs arm64
+
+      - name: Upload Windows ARM artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-arm-release
+          path: |
+            dist/LiveMark_*_arm64-setup.exe
+            dist/LiveMark_*_arm64-setup.exe.sig
+            dist/windows-arm64-platform.json
           if-no-files-found: error
 
   publish:
-    needs: [build-macos, build-windows]
-    if: ${{ !cancelled() && needs.build-macos.result == 'success' && needs.build-windows.result == 'success' }}
+    needs: [build-macos, build-windows, build-windows-arm]
+    if: ${{ !cancelled() && needs.build-macos.result == 'success' && needs.build-windows.result == 'success' && needs.build-windows-arm.result == 'success' }}
     runs-on: ubuntu-latest
     env:
       RELEASE_TAG: ${{ needs.build-macos.outputs.release_tag }}
@@ -196,10 +250,12 @@ jobs:
           mkdir -p dist
           cp parts/mac-release/LiveMark-* parts/mac-release/install.sh dist/
           cp parts/windows-release/LiveMark_*_x64-setup.exe parts/windows-release/LiveMark_*_x64-setup.exe.sig dist/
+          cp parts/windows-arm-release/LiveMark_*_arm64-setup.exe parts/windows-arm-release/LiveMark_*_arm64-setup.exe.sig dist/
           node scripts/merge-latest.mjs \
             parts/mac-release/latest.json \
-            parts/windows-release/windows-platform.json \
-            dist/latest.json
+            dist/latest.json \
+            parts/windows-release/windows-x64-platform.json \
+            parts/windows-arm-release/windows-arm64-platform.json
           cd dist
           sha256sum \
             LiveMark-*-arm64.dmg \
@@ -207,6 +263,7 @@ jobs:
             LiveMark-*-arm64-mac.zip \
             LiveMark-*-arm64.app.tar.gz \
             LiveMark_*_x64-setup.exe \
+            LiveMark_*_arm64-setup.exe \
             > SHA256SUMS.txt
 
       - name: Create GitHub Release if needed
@@ -274,6 +331,7 @@ jobs:
           set -euo pipefail
           names="$(gh release view "$RELEASE_TAG" --json assets --jq '.assets[].name')"
           printf '%s\n' "$names" | grep -q '_x64-setup\.exe$'
+          printf '%s\n' "$names" | grep -q '_arm64-setup\.exe$'
           printf '%s\n' "$names" | grep -q -- '-arm64\.dmg$'
           gh release edit "$RELEASE_TAG" --prerelease=false --latest
           mkdir -p dist

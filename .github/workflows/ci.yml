@@ -85,3 +85,46 @@ jobs:
           path: src-tauri/target/release/bundle/nsis/*_x64-setup.exe
           if-no-files-found: error
           retention-days: 14
+
+  build-windows-arm:
+    runs-on: windows-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-pc-windows-msvc
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Test
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+      - name: Build Windows ARM installer
+        run: npm run tauri build -- --bundles nsis --target aarch64-pc-windows-msvc
+
+      # The real arm64 setup, downloadable from this run. This is not a GitHub Release.
+      - name: Upload arm64 setup
+        uses: actions/upload-artifact@v4
+        with:
+          name: LiveMark-arm64-setup
+          path: src-tauri/target/release/bundle/nsis/*_arm64-setup.exe
+          if-no-files-found: error
+          retention-days: 14
