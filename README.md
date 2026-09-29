@@ -42,6 +42,16 @@ Or download the [DMG](https://github.com/rcoenen/LiveMark/releases/latest), drag
 xattr -cr /Applications/LiveMark.app
 ```
 
+### Windows
+
+Experimental pre-release only.
+
+[LiveMark_1.6.3_x64-setup.exe](https://github.com/rcoenen/LiveMark/releases/download/v1.6.3-windows.1/LiveMark_1.6.3_x64-setup.exe)
+
+This is the x64 installer for Intel and AMD PCs. It installs for the current user, under `%LOCALAPPDATA%\LiveMark`, and does not ask for an administrator account. The installer is unsigned. Windows SmartScreen shows **More info**, then **Run anyway**.
+
+This preview does not replace the latest Mac release or the Homebrew cask.
+
 ## Why LiveMark?
 
 I built LiveMark for myself to improve observability in my coding workflows. Coding agents generate and update a lot of Markdown files, and I wanted a simple way to keep an eye on those changes as they happen. I needed this tool after MacDown was retired. Although MacDown worked through Rosetta, it was never updated to run natively on Apple silicon.
