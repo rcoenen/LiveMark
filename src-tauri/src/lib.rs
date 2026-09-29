@@ -1,3 +1,4 @@
+mod default_app;
 mod document;
 mod install_source;
 mod links;
@@ -5,7 +6,8 @@ mod menu;
 mod session;
 
 use crate::document::{
-    DocumentRegistry, DocumentSnapshot, list_markdown_files, load_snapshot, resolve_document_path,
+    DocumentRegistry, DocumentSnapshot, list_markdown_files, load_snapshot, paths_refer_to_same_file,
+    resolve_document_path, simplify_extended_path,
 };
 use crate::install_source::install_source;
 use crate::session::SessionState;
@@ -34,6 +36,7 @@ const MAIN_WINDOW_LABEL: &str = "main";
 const WATCH_STABILITY_DELAY: Duration = Duration::from_millis(180);
 // Editors that save by replacing the file leave a short gap in which it does not exist.
 const MISSING_RETRY_DELAY: Duration = Duration::from_millis(400);
+#[cfg(target_os = "macos")]
 const CLI_INSTALL_PATH: &str = "/usr/local/bin/livemark";
 
 #[derive(Default)]
@@ -163,10 +166,10 @@ fn register_document(app: &AppHandle<Wry>, input: &str, cwd: &Path) -> Result<()
     let path = resolve_document_path(input, cwd)?;
     let snapshot = load_snapshot(&path)?;
     let document_id = snapshot.id.clone();
-    let parent = path
-        .parent()
-        .ok_or_else(|| format!("{} has no parent directory", path.display()))?
-        .to_owned();
+    let parent = simplify_extended_path(
+        path.parent()
+            .ok_or_else(|| format!("{} has no parent directory", path.display()))?,
+    );
     let state = app.state::<RuntimeState>();
 
     {
@@ -181,7 +184,11 @@ fn register_document(app: &AppHandle<Wry>, input: &str, cwd: &Path) -> Result<()
             return Ok(());
         }
 
-        if !data.watched_directories.contains_key(&parent) {
+        let already_watched = data
+            .watched_directories
+            .keys()
+            .any(|watched| paths_refer_to_same_file(watched, &parent));
+        if !already_watched {
             state
                 .watcher
                 .lock()
@@ -190,7 +197,13 @@ fn register_document(app: &AppHandle<Wry>, input: &str, cwd: &Path) -> Result<()
                 .map_err(|error| format!("could not watch {}: {error}", parent.display()))?;
         }
 
-        *data.watched_directories.entry(parent).or_insert(0) += 1;
+        let watched_key = data
+            .watched_directories
+            .keys()
+            .find(|watched| paths_refer_to_same_file(watched, &parent))
+            .cloned()
+            .unwrap_or_else(|| parent.clone());
+        *data.watched_directories.entry(watched_key).or_insert(0) += 1;
         data.registry.insert(path.clone(), snapshot.clone());
     }
 
@@ -212,6 +225,7 @@ fn register_paths(app: &AppHandle<Wry>, paths: Vec<String>, cwd: &Path) {
     }
 }
 
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
 fn register_or_queue_open_paths(app: &AppHandle<Wry>, paths: Vec<String>) {
     if app.try_state::<RuntimeState>().is_some() {
         register_paths(app, paths, &current_directory());
@@ -253,7 +267,15 @@ fn schedule_refreshes(app: &AppHandle<Wry>, event: Event) {
                 return;
             }
         };
-        let document_ids = data.registry.ids_for_event_paths(&event.paths);
+        let matched = data.registry.ids_for_event_paths(&event.paths);
+        #[cfg(target_os = "windows")]
+        let document_ids = if matched.is_empty() {
+            data.registry.ids_sharing_parent_with(&event.paths)
+        } else {
+            matched
+        };
+        #[cfg(not(target_os = "windows"))]
+        let document_ids = matched;
         document_ids
             .into_iter()
             .map(|document_id| {
@@ -367,13 +389,18 @@ fn close_document_by_id(app: &AppHandle<Wry>, document_id: &str) -> Result<(), S
         data.refresh_generations.remove(document_id);
         data.missing.remove(document_id);
 
-        let parent = outcome.closed_path.parent().map(Path::to_owned);
+        let parent = outcome.closed_path.parent().map(simplify_extended_path);
         let directory_to_unwatch = parent.and_then(|parent| {
-            let count = data.watched_directories.get_mut(&parent)?;
+            let key = data
+                .watched_directories
+                .keys()
+                .find(|watched| paths_refer_to_same_file(watched, &parent))?
+                .clone();
+            let count = data.watched_directories.get_mut(&key)?;
             *count -= 1;
             if *count == 0 {
-                data.watched_directories.remove(&parent);
-                Some(parent)
+                data.watched_directories.remove(&key);
+                Some(key)
             } else {
                 None
             }
@@ -662,6 +689,7 @@ fn create_main_window(app: &tauri::App<Wry>) -> tauri::Result<()> {
     Ok(())
 }
 
+#[cfg(target_os = "macos")]
 fn cli_source_path(app: &AppHandle<Wry>) -> Result<PathBuf, String> {
     if cfg!(debug_assertions) {
         return Ok(Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -676,15 +704,119 @@ fn cli_source_path(app: &AppHandle<Wry>) -> Result<PathBuf, String> {
         .map_err(|error| format!("could not locate application resources: {error}"))
 }
 
+#[cfg(target_os = "macos")]
 fn apple_script_escape(value: &str) -> String {
     value.replace('\\', "\\\\").replace('"', "\\\"")
 }
 
+#[cfg(target_os = "macos")]
 fn shell_quote(value: &str) -> String {
     format!("'{}'", value.replace('\'', "'\\''"))
 }
 
+/// PowerShell that prepends `directory` to the user PATH when it is absent.
+/// A one-entry PATH stays an array, or `foreach` would walk its characters.
+#[cfg_attr(not(any(test, target_os = "windows")), allow(dead_code))]
+fn user_path_update_script(directory: &str) -> String {
+    format!(
+        r#"$dir = '{directory}'
+$path = [Environment]::GetEnvironmentVariable('Path', 'User')
+$items = @()
+if (-not [string]::IsNullOrEmpty($path)) {{
+  $items = @($path.Split(';') | Where-Object {{ $_ -ne '' }})
+}}
+$known = $false
+foreach ($item in $items) {{
+  if ($item.TrimEnd('\') -ieq $dir.TrimEnd('\')) {{ $known = $true }}
+}}
+if (-not $known) {{
+  if ([string]::IsNullOrEmpty($path)) {{ $updated = $dir }} else {{ $updated = $path.TrimEnd(';') + ';' + $dir }}
+  [Environment]::SetEnvironmentVariable('Path', $updated, 'User')
+}}
+"#
+    )
+}
+
 fn install_cli(app: &AppHandle<Wry>) {
+    #[cfg(target_os = "macos")]
+    install_cli_macos(app);
+    #[cfg(target_os = "windows")]
+    install_cli_windows(app);
+}
+
+#[cfg(target_os = "windows")]
+fn show_cli_dialog(app: &AppHandle<Wry>, title: &str, message: String, error: bool) {
+    let mut dialog = app.dialog().message(message).title(title);
+    if error {
+        dialog = dialog.kind(MessageDialogKind::Error);
+    }
+    dialog.show(|_| {});
+}
+
+#[cfg(target_os = "windows")]
+fn install_cli_windows(app: &AppHandle<Wry>) {
+    let exe = match std::env::current_exe() {
+        Ok(path) => path,
+        Err(error) => {
+            show_cli_dialog(app, "CLI installation failed", format!("could not locate LiveMark.exe: {error}"), true);
+            return;
+        }
+    };
+    let Some(local_app_data) = std::env::var_os("LOCALAPPDATA") else {
+        show_cli_dialog(app, "CLI installation failed", "LOCALAPPDATA is not set.".to_owned(), true);
+        return;
+    };
+    let bin_dir = PathBuf::from(local_app_data).join("LiveMark").join("bin");
+    if let Err(error) = fs::create_dir_all(&bin_dir) {
+        show_cli_dialog(
+            app,
+            "CLI installation failed",
+            format!("could not create {}: {error}", bin_dir.display()),
+            true,
+        );
+        return;
+    }
+    let command_path = bin_dir.join("livemark.cmd");
+    let executable = exe.display().to_string().replace('"', "");
+    let script = format!("@echo off\r\nstart \"\" \"{executable}\" %*\r\n");
+    if let Err(error) = fs::write(&command_path, script) {
+        show_cli_dialog(
+            app,
+            "CLI installation failed",
+            format!("could not write {}: {error}", command_path.display()),
+            true,
+        );
+        return;
+    }
+
+    let directory = bin_dir.display().to_string().replace('\'', "''");
+    let powershell = user_path_update_script(&directory);
+    let installed = Command::new("powershell")
+        .args(["-NoProfile", "-NonInteractive", "-Command", &powershell])
+        .status()
+        .is_ok_and(|status| status.success());
+    if installed {
+        show_cli_dialog(
+            app,
+            "CLI installed",
+            "You can now use \"livemark <file> [file...]\" from a new terminal.".to_owned(),
+            false,
+        );
+    } else {
+        show_cli_dialog(
+            app,
+            "CLI installation failed",
+            format!(
+                "LiveMark wrote {} but could not add that folder to your user PATH. Add it yourself, then open a new terminal.",
+                bin_dir.display()
+            ),
+            true,
+        );
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn install_cli_macos(app: &AppHandle<Wry>) {
     let source = match cli_source_path(app) {
         Ok(source) => source,
         Err(error) => {
@@ -831,9 +963,18 @@ pub fn run() {
                 return;
             }
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
-                api.prevent_close();
-                close_all_documents(window.app_handle());
-                let _ = window.hide();
+                #[cfg(target_os = "macos")]
+                {
+                    api.prevent_close();
+                    close_all_documents(window.app_handle());
+                    let _ = window.hide();
+                }
+                #[cfg(not(target_os = "macos"))]
+                {
+                    // The session file already matches the open rail. Shutdown suppresses
+                    // session writes, so closing the window keeps that session for the next launch.
+                    let _ = api;
+                }
             }
         })
         .setup(|app| {
@@ -848,6 +989,9 @@ pub fn run() {
             });
             app.set_menu(build_menu(app)?)?;
             create_main_window(app)?;
+            if let Ok(directory) = app.path().app_data_dir() {
+                default_app::claim_markdown_files_once(&directory);
+            }
 
             let pending_paths = app
                 .state::<PendingOpenPaths>()
@@ -920,20 +1064,38 @@ mod tests {
     }
 
     #[test]
+    fn windows_path_script_keeps_a_single_backslash_and_an_array() {
+        let script = super::user_path_update_script(r"C:\Users\alice\AppData\Local\LiveMark\bin");
+        assert!(script.contains(r"$dir = 'C:\Users\alice\AppData\Local\LiveMark\bin'"));
+        assert!(script.contains(r"$item.TrimEnd('\')"));
+        assert!(script.contains(r"$items = @($path.Split(';') | Where-Object { $_ -ne '' })"));
+        assert!(script.contains("[Environment]::SetEnvironmentVariable('Path', $updated, 'User')"));
+    }
+
+    #[test]
     fn cli_paths_filter_options_and_resolve_relative_inputs() {
+        let absolute = if cfg!(windows) {
+            r"C:\tmp\absolute.md".to_owned()
+        } else {
+            "/tmp/absolute.md".to_owned()
+        };
+        let cwd = Path::new("/work");
         let paths = cli_document_paths(
             [
                 "--ignored".to_owned(),
-                "".to_owned(),
+                String::new(),
                 "notes.md".to_owned(),
-                "/tmp/absolute.md".to_owned(),
+                absolute.clone(),
             ],
-            Path::new("/work"),
+            cwd,
         );
 
         assert_eq!(
             paths,
-            vec!["/work/notes.md".to_owned(), "/tmp/absolute.md".to_owned()]
+            vec![
+                cwd.join("notes.md").to_string_lossy().into_owned(),
+                absolute,
+            ]
         );
     }
 }
