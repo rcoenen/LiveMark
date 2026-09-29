@@ -224,6 +224,7 @@ fn register_paths(app: &AppHandle<Wry>, paths: Vec<String>, cwd: &Path) {
     }
 }
 
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
 fn register_or_queue_open_paths(app: &AppHandle<Wry>, paths: Vec<String>) {
     if app.try_state::<RuntimeState>().is_some() {
         register_paths(app, paths, &current_directory());
@@ -1069,19 +1070,28 @@ mod tests {
 
     #[test]
     fn cli_paths_filter_options_and_resolve_relative_inputs() {
+        let absolute = if cfg!(windows) {
+            r"C:\tmp\absolute.md".to_owned()
+        } else {
+            "/tmp/absolute.md".to_owned()
+        };
+        let cwd = Path::new("/work");
         let paths = cli_document_paths(
             [
                 "--ignored".to_owned(),
-                "".to_owned(),
+                String::new(),
                 "notes.md".to_owned(),
-                "/tmp/absolute.md".to_owned(),
+                absolute.clone(),
             ],
-            Path::new("/work"),
+            cwd,
         );
 
         assert_eq!(
             paths,
-            vec!["/work/notes.md".to_owned(), "/tmp/absolute.md".to_owned()]
+            vec![
+                cwd.join("notes.md").to_string_lossy().into_owned(),
+                absolute,
+            ]
         );
     }
 }
