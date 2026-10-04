@@ -4,14 +4,14 @@
 LiveMark is the same live Markdown viewer on every machine it runs on. Today that machine can only be an Apple silicon Mac. Windows users need the same app, the same version, and the same features, built from this repository.
 
 ## What Changes
-- Add Windows x64 and arm64 build targets beside the existing macOS target. One `src-tauri/` tree, one frontend, one version number, one GitHub Release per tag.
+- Add Windows x64 and arm64 build targets beside the existing macOS target. One `src-tauri/` tree, one frontend, one version number. The download tags are `<version>-MAC` and `<version>-WIN`.
 - Ship a per-user NSIS installer (`LiveMark-<version>-win-x64-setup.exe` and `LiveMark-<version>-win-arm64-setup.exe`) that needs no administrator and no Authenticode certificate. WebView2 uses Tauri's download bootstrapper.
 - Add `build/icon.ico`, generated from `build/icon.png`, and reference it from `bundle.icon`.
 - Keep the Tauri updater and `latest.json`. A Windows release install is `direct` and may update itself. Homebrew installs on Mac stay instruction-only.
 - Gate macOS-only menu items, overlay title-bar insets, and the POSIX `livemark` script. Windows gets a native title bar, Ctrl shortcut labels, a `livemark.cmd` installed onto the user PATH, and close-quits instead of close-hides.
 - Normalize watched paths so a save still refreshes when Windows differs in drive-letter case or the `\\?\` prefix.
 - Build the NSIS installers on `windows-latest` in CI and upload those setups as Actions artifacts. That run does not create a GitHub Release.
-- The release workflow publishes the same tag as the DMG, ships both platforms together as the latest release, and merges the platforms into one `latest.json` with `windows-x86_64` and `windows-aarch64`. The Homebrew cask bumps on every release.
+- The release workflow publishes `<version>-MAC` and `<version>-WIN` from the same build, merges the platforms into one `latest.json` with `windows-x86_64` and `windows-aarch64`, and attaches that manifest to both tags. The Homebrew cask bumps on every release and downloads from the MAC tag.
 - Document both installers in the README, including the SmartScreen step. Replace the single "download the dmg" badge and the one total download counter with a Mac badge, a Windows badge, and a separate package-download count for each. The Windows packages on a release are `LiveMark-<version>-win-x64-setup.exe` and `LiveMark-<version>-win-arm64-setup.exe`, each with a stable `LiveMark-win-<arch>-setup.exe` alias.
 
 ## Non-goals

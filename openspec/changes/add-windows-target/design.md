@@ -28,11 +28,11 @@ Windows signing uses the same minisign key already in `plugins.updater.pubkey`. 
 ```json
 "windows-x86_64": {
   "signature": "<minisign>",
-  "url": "https://github.com/rcoenen/LiveMark/releases/download/v<version>/LiveMark-<version>-win-x64-setup.exe"
+  "url": "https://github.com/rcoenen/LiveMark/releases/download/<version>-WIN/LiveMark-<version>-win-x64-setup.exe"
 },
 "windows-aarch64": {
   "signature": "<minisign>",
-  "url": "https://github.com/rcoenen/LiveMark/releases/download/v<version>/LiveMark-<version>-win-arm64-setup.exe"
+  "url": "https://github.com/rcoenen/LiveMark/releases/download/<version>-WIN/LiveMark-<version>-win-arm64-setup.exe"
 }
 ```
 
@@ -66,7 +66,7 @@ Normalize before compare and before using a path as a watch-map key: strip the e
 
 `ci.yml` gains `windows-latest` jobs: `npm ci`, `npm test`, `npm run build`, `tauri build --bundles nsis` (and `--target aarch64-pc-windows-msvc` for the arm64 job) without the signing secrets, then uploads the setups as Actions artifacts. Those artifacts are the real installers. The jobs do not create a GitHub Release. The macOS job stays. A pull request is enough to produce the exes; an x64 Windows machine and an ARM VM are not required before those builds run. A GUI smoke (launch, open a file, live reload, SmartScreen, updater) stays manual.
 
-Release workflow: `build-macos`, `build-windows`, and `build-windows-arm` in parallel after release-please, then one publish job that merges `latest.json` and uploads all platforms to the same tag as a single latest release. The Homebrew cask bumps on every release. Do not tag until all bundles have been produced.
+Release workflow: `build-macos`, `build-windows`, and `build-windows-arm` in parallel after release-please, then one publish job that merges `latest.json` and uploads Mac artifacts to `<version>-MAC` and Windows artifacts to `<version>-WIN`. The same `latest.json` is attached to both tags. The Homebrew cask bumps on every release and downloads from the MAC tag. Do not publish either tag until all bundles have been produced.
 
 ### Icons
 Generate once and commit:

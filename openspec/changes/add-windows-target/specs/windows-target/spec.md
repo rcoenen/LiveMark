@@ -1,17 +1,18 @@
 ## ADDED Requirements
 
 ### Requirement: One product and one version
-LiveMark SHALL build Windows from the same repository, the same `src-tauri` tree, and the same frontend as macOS. A published version SHALL use one version number and SHALL attach the macOS artifacts and both Windows NSIS installers to the same GitHub Release.
+LiveMark SHALL build Windows from the same repository, the same `src-tauri` tree, and the same frontend as macOS. A published version SHALL use one version number and SHALL publish two download tags: `<version>-MAC` and `<version>-WIN`. The Mac tag holds the macOS artifacts. The Windows tag holds both NSIS installers.
 
-#### Scenario: One tag ships both platforms
-- **WHEN** a version is published
-- **THEN** the GitHub Release SHALL contain the macOS DMG and the two Windows installers, `LiveMark-<version>-win-x64-setup.exe` and `LiveMark-<version>-win-arm64-setup.exe`
-- **AND** the release SHALL NOT contain a 32-bit installer
+#### Scenario: Each platform has its own tag
+- **WHEN** version 1.6.4 is published
+- **THEN** the Mac DMG SHALL be on the GitHub Release `1.6.4-MAC`
+- **AND** `LiveMark-<version>-win-x64-setup.exe` and `LiveMark-<version>-win-arm64-setup.exe` SHALL be on the GitHub Release `1.6.4-WIN`
+- **AND** neither release SHALL contain a 32-bit installer
 
 #### Scenario: Updater lists both Windows architectures
 - **WHEN** `latest.json` is published
 - **THEN** the Windows platform keys SHALL be `windows-x86_64` and `windows-aarch64`
-- **AND** their URLs SHALL point at `LiveMark-<version>-win-x64-setup.exe` and `LiveMark-<version>-win-arm64-setup.exe` on that tag
+- **AND** their URLs SHALL point at `LiveMark-<version>-win-x64-setup.exe` and `LiveMark-<version>-win-arm64-setup.exe` on the `<version>-WIN` tag
 
 #### Scenario: No second source tree
 - **WHEN** the Windows target is built

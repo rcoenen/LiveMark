@@ -60,7 +60,7 @@ const manifest = {
   platforms: {
     "darwin-aarch64": {
       signature,
-      url: `https://github.com/rcoenen/LiveMark/releases/download/v${version}/LiveMark-${version}-mac-arm64-update.tar.gz`,
+      url: `https://github.com/rcoenen/LiveMark/releases/download/${version}-MAC/LiveMark-${version}-mac-arm64-update.tar.gz`,
     },
   },
 };

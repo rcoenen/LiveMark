@@ -23,8 +23,8 @@
 - [ ] 3.4 Manual smoke on Windows: install without admin, open a file, live reload after an editor save, tabs, CLI, and a direct update. Confirm the Mac cask still shows the Homebrew command and does not self-install.
 - [x] 3.5 Update `openspec/project.md` so it describes both targets.
 - [x] 3.7 The `windows-latest` CI jobs upload the x64 and arm64 setups as Actions artifacts and do not create a GitHub Release.
-- [x] 3.8 A release contains both Windows installers, `LiveMark-<version>-win-x64-setup.exe` and `LiveMark-<version>-win-arm64-setup.exe`, plus their stable `LiveMark-win-<arch>-setup.exe` aliases. No 32-bit installer. `latest.json` lists `windows-x86_64` and `windows-aarch64`.
-- [x] 3.9 A new release is a regular latest release. The Homebrew cask bumps on every release. There is no pre-release and no promote step.
+- [x] 3.8 The `<version>-WIN` release contains both Windows installers, `LiveMark-<version>-win-x64-setup.exe` and `LiveMark-<version>-win-arm64-setup.exe`, plus their stable `LiveMark-win-<arch>-setup.exe` aliases. The `<version>-MAC` release contains the DMG. No 32-bit installer. `latest.json` lists `windows-x86_64` and `windows-aarch64` and is attached to both tags.
+- [x] 3.9 Both tags are regular releases. The Homebrew cask bumps on every release and downloads from `<version>-MAC`. There is no pre-release and no promote step.
 - [ ] 3.6 Do not push a `feat:` commit or merge a release PR until the minor version bump is explicitly approved.
 
 ## 4. Verification on the Mac tree

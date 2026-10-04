@@ -38,7 +38,7 @@ const signature = readFileSync(`${destination}.sig`, 'utf8').trim();
 const platform = {
   [platformKey]: {
     signature,
-    url: `https://github.com/rcoenen/LiveMark/releases/download/v${version}/${versioned}`,
+    url: `https://github.com/rcoenen/LiveMark/releases/download/${version}-WIN/${versioned}`,
   },
 };
 writeFileSync(join('dist', `windows-${arch}-platform.json`), `${JSON.stringify(platform, null, 2)}\n`);

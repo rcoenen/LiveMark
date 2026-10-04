@@ -31,7 +31,16 @@ In this repo release-please derives the bump from conventional commit prefixes, 
 
 ## Lockstep versioning
 
-macOS and Windows always ship the same version, from the same `package.json`. There is no per-platform version. Any change bumps everyone together — a Windows-only fix still bumps the Mac build and vice versa. Do not introduce platform-specific version numbers.
+macOS and Windows always ship the same version number, from the same `package.json`. There is no per-platform version number. Any change bumps everyone together — a Windows-only fix still bumps the Mac build and vice versa. Do not ship `1.6.4` for Mac and a different number for Windows.
+
+## Release tags
+
+The published download tags put the platform after that shared version. The suffix is uppercase, with a hyphen, and there is no `v` prefix:
+
+- `x.x.x-MAC` — Mac only. Example: `1.6.4-MAC`. This release holds the DMG, the Mac updater archive, and `install.sh`.
+- `x.x.x-WIN` — Windows only. Example: `1.6.4-WIN`. This release holds both installers, x64 and ARM.
+
+Do not publish one combined download tag such as `v1.6.4`, and do not invent a second version such as `1.6.4-windows.1`. release-please may still create the git tag `v1.6.4` so it knows which version it already shipped. That git tag is not a download release. `latest.json` is attached to both download tags, and each file URL inside it uses the tag for its own platform.
 
 ## Commit scopes for platform
 

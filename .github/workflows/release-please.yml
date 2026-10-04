@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       release_tag:
-        description: Existing tag to build and publish, such as v1.7.0
+        description: Existing source tag to build, such as v1.6.4. Downloads are published as <version>-MAC and <version>-WIN.
         required: true
         type: string
 
@@ -238,61 +238,153 @@ jobs:
       - name: Merge the updater manifest
         run: |
           set -euo pipefail
-          mkdir -p dist
-          cp parts/mac-release/LiveMark-* parts/mac-release/install.sh dist/
-          cp parts/windows-release/LiveMark-* parts/windows-arm-release/LiveMark-* dist/
+          mkdir -p dist/mac dist/win
+          cp parts/mac-release/LiveMark-* parts/mac-release/install.sh dist/mac/
+          cp parts/windows-release/LiveMark-* parts/windows-arm-release/LiveMark-* dist/win/
           node scripts/merge-latest.mjs \
             parts/mac-release/latest.json \
             dist/latest.json \
             parts/windows-release/windows-x64-platform.json \
             parts/windows-arm-release/windows-arm64-platform.json
-          cd dist
-          sha256sum \
-            LiveMark-*-mac-arm64.dmg \
-            LiveMark-mac.dmg \
-            LiveMark-*-mac-arm64-update.tar.gz \
-            LiveMark-*-win-x64-setup.exe \
-            LiveMark-*-win-arm64-setup.exe \
-            > SHA256SUMS.txt
+          cp dist/latest.json dist/mac/latest.json
+          cp dist/latest.json dist/win/latest.json
+          (
+            cd dist/mac
+            sha256sum \
+              LiveMark-*-mac-arm64.dmg \
+              LiveMark-mac.dmg \
+              LiveMark-*-mac-arm64-update.tar.gz \
+              > SHA256SUMS.txt
+          )
+          (
+            cd dist/win
+            sha256sum \
+              LiveMark-*-win-x64-setup.exe \
+              LiveMark-*-win-arm64-setup.exe \
+              > SHA256SUMS.txt
+          )
 
-      - name: Create GitHub Release if needed
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          if ! gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
-            gh release create "$RELEASE_TAG" --verify-tag --title "LiveMark ${RELEASE_TAG#v}" --generate-notes
-          fi
-
-      - name: Upload release files
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          gh release upload "$RELEASE_TAG" \
-            dist/LiveMark-* \
-            dist/latest.json \
-            dist/SHA256SUMS.txt \
-            dist/install.sh \
-            --clobber
-
-      - name: Update Homebrew cask on main
+      - name: Publish Mac and Windows releases
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
           VERSION="${RELEASE_TAG#v}"
-          SHA256="$(sha256sum "dist/LiveMark-${VERSION}-mac-arm64.dmg" | awk '{print $1}')"
+          VERSION="${VERSION%-MAC}"
+          VERSION="${VERSION%-WIN}"
+          MAC_TAG="${VERSION}-MAC"
+          WIN_TAG="${VERSION}-WIN"
+          if gh release view "$RELEASE_TAG" --json body --jq .body > /tmp/notes.md 2>/dev/null; then
+            :
+          else
+            printf 'LiveMark %s\n' "$VERSION" > /tmp/notes.md
+          fi
+          if [ ! -s /tmp/notes.md ]; then
+            printf 'LiveMark %s\n' "$VERSION" > /tmp/notes.md
+          fi
+          if ! gh release view "$MAC_TAG" >/dev/null 2>&1; then
+            gh release create "$MAC_TAG" --target "$RELEASE_TAG" --title "LiveMark ${VERSION} for Mac" --notes-file /tmp/notes.md
+          fi
+          if ! gh release view "$WIN_TAG" >/dev/null 2>&1; then
+            gh release create "$WIN_TAG" --target "$RELEASE_TAG" --title "LiveMark ${VERSION} for Windows" --notes-file /tmp/notes.md
+          fi
+          gh release upload "$MAC_TAG" \
+            dist/mac/LiveMark-* \
+            dist/mac/latest.json \
+            dist/mac/SHA256SUMS.txt \
+            dist/mac/install.sh \
+            --clobber
+          gh release upload "$WIN_TAG" \
+            dist/win/LiveMark-* \
+            dist/win/latest.json \
+            dist/win/SHA256SUMS.txt \
+            --clobber
+          if [ "$RELEASE_TAG" = "v${VERSION}" ] && gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh release delete "$RELEASE_TAG" --yes
+          fi
+
+      - name: Update Homebrew cask and download links on main
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          VERSION="${RELEASE_TAG#v}"
+          VERSION="${VERSION%-MAC}"
+          VERSION="${VERSION%-WIN}"
+          SHA256="$(sha256sum "dist/mac/LiveMark-${VERSION}-mac-arm64.dmg" | awk '{print $1}')"
           if [ ! -f Casks/livemark.rb ]; then
             echo "No Homebrew cask on main; skipping"
             exit 0
           fi
-          perl -i -pe "s/^  version \".*\"/  version \"${VERSION}\"/" Casks/livemark.rb
-          perl -i -pe "s/^  sha256 \".*\"/  sha256 \"${SHA256}\"/" Casks/livemark.rb
-          if git diff --quiet -- Casks/livemark.rb; then
-            echo "Homebrew cask already up to date"
+          python3 - "$VERSION" "$SHA256" <<'PY'
+          import pathlib, sys
+          version, sha = sys.argv[1], sys.argv[2]
+          cask = pathlib.Path("Casks/livemark.rb")
+          text = cask.read_text()
+          lines = []
+          for line in text.splitlines(keepends=True):
+              if line.startswith('  version "'):
+                  line = f'  version "{version}"\n'
+              elif line.startswith('  sha256 "'):
+                  line = f'  sha256 "{sha}"\n'
+              elif line.startswith('  url "'):
+                  line = (
+                      '  url "https://github.com/rcoenen/LiveMark/releases/download/'
+                      f'{version}-MAC/LiveMark-{version}-mac-arm64.dmg"\n'
+                  )
+              lines.append(line)
+          cask.write_text("".join(lines))
+          readme = pathlib.Path("README.md")
+          body = readme.read_text()
+          import re
+          body = re.sub(
+              r"https://img\.shields\.io/badge/download%20mac-[^-]+-7C3AED",
+              f"https://img.shields.io/badge/download%20mac-{version}-7C3AED",
+              body,
+          )
+          body = re.sub(
+              r"https://img\.shields\.io/badge/download%20windows-[^-]+-7C3AED",
+              f"https://img.shields.io/badge/download%20windows-{version}-7C3AED",
+              body,
+          )
+          body = re.sub(
+              r"releases/download/[0-9.]+-MAC/",
+              f"releases/download/{version}-MAC/",
+              body,
+          )
+          body = re.sub(
+              r"releases/download/[0-9.]+-WIN/",
+              f"releases/download/{version}-WIN/",
+              body,
+          )
+          readme.write_text(body)
+          PY
+          python3 - <<'PY'
+          import pathlib, re
+          path = pathlib.Path("Casks/livemark.rb")
+          text = path.read_text()
+          replacement = """  livecheck do
+            url :url
+            regex(/^v?(\\d+(?:\\.\\d+)+)-MAC$/i)
+            strategy :github_releases
+          end
+          """
+          text2, n = re.subn(
+              r"  livecheck do\n(?:    .*\n)*?  end\n",
+              lambda _match: replacement,
+              text,
+              count=1,
+          )
+          if n != 1:
+              raise SystemExit("could not update the cask livecheck")
+          path.write_text(text2)
+          PY
+          if git diff --quiet -- Casks/livemark.rb README.md; then
+            echo "Homebrew cask and download links already up to date"
             exit 0
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add Casks/livemark.rb
-          git commit -m "chore(brew): bump livemark cask to ${VERSION}"
+          git add Casks/livemark.rb README.md
+          git commit -m "chore: point ${VERSION} downloads at ${VERSION}-MAC and ${VERSION}-WIN"
           git push origin main
