@@ -100,6 +100,8 @@ function loadSettings(): ReloadSettings {
 
 const livemark = installLiveMarkBridge();
 
+document.documentElement.dataset.platform = /Windows/.test(navigator.userAgent) ? 'windows' : 'mac';
+
 function applyTheme(dark: boolean): void {
   document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
 }
@@ -138,6 +140,10 @@ document.addEventListener('DOMContentLoaded', () => {
   const paletteEl = byId('palette');
   const paletteInput = byId<HTMLInputElement>('palette-input');
   const paletteListEl = byId('palette-list');
+  const aboutEl = byId('about-dialog');
+  const aboutCardEl = aboutEl.querySelector('.about__card') as HTMLElement;
+  const aboutVersionEl = byId('about-version');
+  const aboutCloseBtn = byId<HTMLButtonElement>('about-close-btn');
   const tabMenuEl = byId('tab-menu');
   const tabMenuCopyBtn = byId<HTMLButtonElement>('tab-menu-copy-path');
   const tabMenuFolderBtn = byId<HTMLButtonElement>('tab-menu-open-folder');
@@ -1039,6 +1045,17 @@ document.addEventListener('DOMContentLoaded', () => {
     paletteReturnFocus = null;
   }
 
+  function openAbout(): void {
+    aboutVersionEl.textContent = byId('app-version').textContent ?? '';
+    aboutEl.hidden = false;
+    aboutCloseBtn.focus();
+  }
+
+  function closeAbout(): void {
+    if (aboutEl.hidden) return;
+    aboutEl.hidden = true;
+  }
+
   function choosePaletteEntry(entry: PaletteEntry): void {
     closePalette();
     if (entry.open) requestDocumentActivation(entry.path);
@@ -1142,6 +1159,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
   byId('find-close-btn').addEventListener('click', closeFind);
+  aboutCloseBtn.addEventListener('click', closeAbout);
 
   // Text zoom scales the document only; the rail, margin column and measure keep their size.
   let textZoom = Number(localStorage.getItem(TEXT_ZOOM_KEY)) || 100;
@@ -1181,8 +1199,29 @@ document.addEventListener('DOMContentLoaded', () => {
       setSplit(!split);
     } else if (command === 'toggle-pause' && documentState && !documentState.missing) {
       setPaused(documentState, !documentState.paused);
+    } else if (command === 'export-pdf') {
+      void exportFocusedDocument();
     } else if (command === 'check-updates') {
       updates.checkManually();
+    } else if (command === 'about') {
+      openAbout();
+    }
+  }
+
+  let exportInFlight = false;
+
+  async function exportFocusedDocument(): Promise<void> {
+    const documentState = getActiveDocument();
+    const pane = focusedPane();
+    if (exportInFlight || !documentState || !pane.documentId) return;
+    exportInFlight = true;
+    for (const candidate of panes) candidate.element.classList.remove('is-print-target');
+    pane.element.classList.add('is-print-target');
+    try {
+      await livemark.exportPdf(documentState.path);
+    } finally {
+      pane.element.classList.remove('is-print-target');
+      exportInFlight = false;
     }
   }
 
@@ -1194,6 +1233,7 @@ document.addEventListener('DOMContentLoaded', () => {
       setPopoverOpen(false);
       closeTabMenu();
       setRailOpen(false);
+      closeAbout();
       return;
     }
     if (!event.metaKey && !event.ctrlKey) return;
@@ -1209,6 +1249,8 @@ document.addEventListener('DOMContentLoaded', () => {
       command = 'text-zoom-out';
     } else if (key === '0') {
       command = 'text-zoom-reset';
+    } else if (key === 'e') {
+      command = 'export-pdf';
     } else if (key === 'p') {
       command = 'go-to-file';
     } else if (key === 'f') {
@@ -1230,6 +1272,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!popoverEl.hidden && !popoverEl.contains(target) && !allReloadsBtn.contains(target)) setPopoverOpen(false);
     if (!paletteEl.hidden && !paletteEl.contains(target)) closePalette();
     if (!tabMenuEl.hidden && !tabMenuEl.contains(target)) closeTabMenu();
+    if (!aboutEl.hidden && !aboutCardEl.contains(target)) closeAbout();
     if (
       document.documentElement.classList.contains('is-rail-open') &&
       !railEl.contains(target) &&

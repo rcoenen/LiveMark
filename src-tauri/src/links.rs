@@ -135,9 +135,15 @@ mod tests {
             classify_link("docs/my%20notes.md#intro"),
             LinkTarget::Local(PathBuf::from("docs/my notes.md"))
         );
+        #[cfg(unix)]
         assert_eq!(
             classify_link("file:///tmp/a%20b.md"),
             LinkTarget::Local(PathBuf::from("/tmp/a b.md"))
+        );
+        #[cfg(windows)]
+        assert_eq!(
+            classify_link("file:///C:/Docs/a%20b.md"),
+            LinkTarget::Local(PathBuf::from(r"C:\Docs\a b.md"))
         );
     }
 

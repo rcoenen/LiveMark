@@ -222,6 +222,24 @@ body.is-rail-resizing {
   height: 43px;
 }
 
+/* Windows draws its own title bar, so the traffic-light inset is unused. */
+html[data-platform="windows"] .rail__titlebar {
+  height: 0;
+}
+
+html[data-platform="windows"] .workspace__titlebar {
+  display: none;
+}
+
+html[data-platform="windows"] .rail-toggle {
+  top: 8px;
+}
+
+html[data-platform="windows"].is-rail-open .rail-toggle {
+  top: 8px;
+  left: 8px;
+}
+
 .rail__heading {
   padding: 12px 14px 10px;
   font-size: 10px;
@@ -1739,6 +1757,66 @@ html[data-theme="dark"] .hljs-builtin-name {
   color: var(--gray-10);
 }
 
+/* About dialog */
+.about {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: rgba(0, 0, 0, 0.4);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.about[hidden] {
+  display: none;
+}
+
+.about__card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  width: min(360px, calc(100vw - 48px));
+  padding: 20px;
+  color: var(--gray-12);
+  background-color: var(--gray-1);
+  border-radius: 8px;
+  box-shadow: var(--shadow-4), 0 0 0 1px var(--gray-a5), 0 24px 60px rgba(0, 0, 0, 0.25);
+}
+
+.about__header {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.about__name {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.about__version {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--gray-11);
+}
+
+.about__description {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--gray-11);
+}
+
+.about__card .link-button {
+  align-self: flex-end;
+  font-size: 12.5px;
+}
+
 .links-out-list {
   display: flex;
   flex-direction: column;
@@ -1825,5 +1903,156 @@ html[data-theme="dark"] .hljs-builtin-name {
 
   .rail {
     transition: none;
+  }
+}
+
+/* Export as PDF. The print formatter paginates this; the screen never sees it. */
+@media print {
+  @page {
+    margin: 0.6in;
+  }
+
+  html,
+  html[data-theme="dark"] {
+    --gray-1: #fcfcfd;
+    --gray-2: #f9f9fb;
+    --gray-3: #f0f0f3;
+    --gray-11: #60646c;
+    --gray-12: #1c2024;
+    --gray-a3: rgba(0, 0, 51, 0.059);
+    --gray-a5: rgba(0, 9, 50, 0.122);
+    --gray-a6: rgba(0, 0, 47, 0.149);
+    --indigo-11: #3a5bc7;
+    --bg-color: #ffffff;
+    --text-color: #1c2024;
+    --text-secondary: #60646c;
+    --code-bg: rgba(0, 0, 51, 0.059);
+    --link-color: #3a5bc7;
+    --header-bg: #f0f0f3;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+
+  html[data-theme="dark"] .hljs-keyword,
+  html[data-theme="dark"] .hljs-selector-tag {
+    color: #d73a49;
+  }
+
+  html[data-theme="dark"] .hljs-string,
+  html[data-theme="dark"] .hljs-attr {
+    color: #032f62;
+  }
+
+  html[data-theme="dark"] .hljs-number,
+  html[data-theme="dark"] .hljs-literal,
+  html[data-theme="dark"] .hljs-built_in,
+  html[data-theme="dark"] .hljs-builtin-name {
+    color: #005cc5;
+  }
+
+  html[data-theme="dark"] .hljs-title,
+  html[data-theme="dark"] .hljs-section {
+    color: #6f42c1;
+  }
+
+  .rail,
+  .rail-toggle,
+  .margin-column,
+  .empty-state,
+  .workspace__titlebar,
+  .pane__header,
+  .pane__placeholder,
+  .find-bar,
+  .palette,
+  .popover,
+  .toast,
+  .app-update,
+  .tab-menu,
+  .about {
+    display: none !important;
+  }
+
+  .pane {
+    display: none !important;
+  }
+
+  html,
+  body,
+  .workspace,
+  .panes,
+  .pane.is-print-target,
+  .pane.is-print-target .pane__scroller,
+  .pane.is-print-target .document-layout,
+  .pane.is-print-target .content {
+    display: block !important;
+    position: static !important;
+    overflow: visible !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    width: auto !important;
+    max-width: none !important;
+    background: #ffffff !important;
+    color: #1c2024;
+    box-shadow: none !important;
+    transform: none !important;
+  }
+
+  .pane.is-print-target .content {
+    zoom: 1 !important;
+    padding: 0 !important;
+  }
+
+  .pane.is-print-target .document-layout {
+    padding: 0 !important;
+    gap: 0 !important;
+  }
+
+  .content pre,
+  .content pre code {
+    white-space: pre-wrap !important;
+    overflow: visible !important;
+  }
+
+  .table-scroll {
+    overflow: visible !important;
+    contain: none !important;
+  }
+
+  .content h1,
+  .content h2,
+  .content h3,
+  .content h4,
+  .content h5,
+  .content h6 {
+    break-after: avoid;
+    page-break-after: avoid;
+  }
+
+  .content img,
+  .content blockquote,
+  .content tr {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .content a {
+    color: #3a5bc7 !important;
+    text-decoration: underline;
+  }
+
+  .content mark.lm-find,
+  .content mark.lm-find.is-current,
+  .content .lm-changed,
+  .content .lm-changed::before,
+  .content tr.lm-changed > * {
+    background: none !important;
+    background-color: transparent !important;
+    box-shadow: none !important;
+    color: inherit !important;
+  }
+
+  .content .lm-changed::before {
+    content: none !important;
   }
 }

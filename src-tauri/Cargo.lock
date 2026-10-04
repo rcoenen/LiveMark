@@ -2130,11 +2130,15 @@ checksum = "47d9d19d1d6efa0109d2f65ff4c85cddd50bd572e5a00127ab10987290bcefae"
 
 [[package]]
 name = "livemark"
-version = "1.6.1"
+version = "1.6.3"
 dependencies = [
  "base64 0.22.1",
  "mime_guess",
  "notify",
+ "objc2",
+ "objc2-app-kit",
+ "objc2-foundation",
+ "objc2-web-kit",
  "percent-encoding",
  "serde",
  "serde_json",
@@ -2145,6 +2149,8 @@ dependencies = [
  "tauri-plugin-process",
  "tauri-plugin-single-instance",
  "tauri-plugin-updater",
+ "webview2-com",
+ "windows",
 ]
 
 [[package]]

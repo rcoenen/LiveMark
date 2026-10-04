@@ -4,6 +4,38 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::UNIX_EPOCH;
 
+/// `\\?\` and `\\?\UNC\` are a Windows `canonicalize` artifact. Stored document
+/// ids and path comparisons use the path without that prefix.
+pub fn simplify_extended_path(path: &Path) -> PathBuf {
+    let text = path.to_string_lossy();
+    let stripped = if let Some(rest) = text.strip_prefix(r"\\?\UNC\") {
+        format!(r"\\{rest}")
+    } else if let Some(rest) = text.strip_prefix(r"\\?\") {
+        rest.to_owned()
+    } else {
+        return path.to_path_buf();
+    };
+    PathBuf::from(stripped)
+}
+
+pub fn paths_refer_to_same_file(left: &Path, right: &Path) -> bool {
+    paths_equal(left, right, cfg!(windows))
+}
+
+fn paths_equal(left: &Path, right: &Path, ignore_ascii_case: bool) -> bool {
+    let left = simplify_extended_path(left);
+    let right = simplify_extended_path(right);
+    if !ignore_ascii_case {
+        return left == right;
+    }
+    let fold = |path: PathBuf| {
+        path.components()
+            .map(|component| component.as_os_str().to_string_lossy().to_ascii_lowercase())
+            .collect::<Vec<_>>()
+    };
+    fold(left) == fold(right)
+}
+
 const SUPPORTED_EXTENSIONS: [&str; 3] = ["md", "markdown", "txt"];
 
 #[derive(Clone, Debug, PartialEq, Serialize)]
@@ -138,7 +170,29 @@ impl DocumentRegistry {
                 let record = self.documents.get(id)?;
                 event_paths
                     .iter()
-                    .any(|event_path| event_path == &record.path)
+                    .any(|event_path| paths_refer_to_same_file(event_path, &record.path))
+                    .then(|| id.clone())
+            })
+            .collect()
+    }
+
+    /// Open documents that live in the same directory as an event path.
+    /// Windows editors often emit the temporary name from an atomic save, not the document path.
+    /// macOS matches the event path exactly, so this fallback is only called on Windows.
+    #[cfg_attr(not(target_os = "windows"), allow(dead_code))]
+    pub fn ids_sharing_parent_with(&self, event_paths: &[PathBuf]) -> Vec<String> {
+        self.order
+            .iter()
+            .filter_map(|id| {
+                let record = self.documents.get(id)?;
+                let parent = record.path.parent()?;
+                event_paths
+                    .iter()
+                    .any(|event_path| {
+                        event_path.parent().is_some_and(|event_parent| {
+                            paths_refer_to_same_file(event_parent, parent)
+                        }) || paths_refer_to_same_file(event_path, parent)
+                    })
                     .then(|| id.clone())
             })
             .collect()
@@ -158,6 +212,7 @@ pub fn resolve_document_path(input: &str, cwd: &Path) -> Result<PathBuf, String>
     };
 
     let canonical_path = fs::canonicalize(&absolute_path)
+        .map(|path| simplify_extended_path(&path))
         .map_err(|error| format!("could not resolve {}: {error}", absolute_path.display()))?;
     let metadata = fs::metadata(&canonical_path)
         .map_err(|error| format!("could not inspect {}: {error}", canonical_path.display()))?;
@@ -241,7 +296,7 @@ mod tests {
         DocumentRegistry, DocumentSnapshot, list_markdown_files, load_snapshot, resolve_document_path,
     };
     use std::fs;
-    use std::path::PathBuf;
+    use std::path::{Path, PathBuf};
     use std::sync::atomic::{AtomicUsize, Ordering};
     use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -335,6 +390,66 @@ mod tests {
             vec!["/a.md", "/b.md"]
         );
         assert!(registry.ids_for_event_paths(&[]).is_empty());
+    }
+
+    #[test]
+    fn extended_windows_prefixes_match_the_plain_path() {
+        let stored = PathBuf::from(r"C:\Docs\Notes.md");
+        assert_eq!(
+            super::simplify_extended_path(Path::new(r"\\?\C:\Docs\Notes.md")),
+            stored
+        );
+        assert_eq!(
+            super::simplify_extended_path(Path::new(r"\\?\UNC\server\share\Notes.md")),
+            PathBuf::from(r"\\server\share\Notes.md")
+        );
+        assert!(super::paths_equal(
+            Path::new(r"\\?\C:\Docs\Notes.md"),
+            Path::new(r"C:\Docs\Notes.md"),
+            false
+        ));
+        assert!(super::paths_equal(
+            Path::new(r"C:\Docs\Notes.md"),
+            Path::new(r"c:\docs\notes.md"),
+            true
+        ));
+        assert!(!super::paths_equal(
+            Path::new(r"C:\Docs\Notes.md"),
+            Path::new(r"c:\docs\notes.md"),
+            false
+        ));
+    }
+
+    #[test]
+    fn watcher_events_match_across_extended_prefixes() {
+        let mut registry = DocumentRegistry::default();
+        registry.insert(
+            PathBuf::from(r"C:\Docs\Notes.md"),
+            snapshot(r"C:\Docs\Notes.md", "a"),
+        );
+
+        assert_eq!(
+            registry.ids_for_event_paths(&[PathBuf::from(r"\\?\C:\Docs\Notes.md")]),
+            vec![r"C:\Docs\Notes.md"]
+        );
+    }
+
+    #[test]
+    fn sibling_events_refresh_open_documents_in_that_directory() {
+        let mut registry = DocumentRegistry::default();
+        registry.insert(
+            PathBuf::from("C:/Docs/Notes.md"),
+            snapshot("C:/Docs/Notes.md", "a"),
+        );
+        registry.insert(
+            PathBuf::from("C:/Other/Other.md"),
+            snapshot("C:/Other/Other.md", "b"),
+        );
+
+        assert_eq!(
+            registry.ids_sharing_parent_with(&[PathBuf::from("C:/Docs/Notes.md.tmp")]),
+            vec!["C:/Docs/Notes.md"]
+        );
     }
 
     #[test]

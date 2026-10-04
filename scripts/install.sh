@@ -45,11 +45,17 @@ trap cleanup EXIT
 
 if [ -n "${LIVEMARK_VERSION:-}" ]; then
   VERSION="${LIVEMARK_VERSION#v}"
-  TAG="v${VERSION}"
+  VERSION="${VERSION%-MAC}"
+  VERSION="${VERSION%-WIN}"
+  TAG="${VERSION}-MAC"
 else
-  LATEST_URL="$(curl -fsSL -o /dev/null -w '%{url_effective}' "${RELEASES_URL}/latest")"
-  TAG="${LATEST_URL##*/}"
-  VERSION="${TAG#v}"
+  TAG="$(
+    curl -fsSL "https://api.github.com/repos/${REPO}/releases?per_page=30" \
+      | grep -o '"tag_name": *"[^"]*-MAC"' \
+      | head -n 1 \
+      | sed -E 's/.*"([^"]*-MAC)"/\1/'
+  )"
+  VERSION="${TAG%-MAC}"
 fi
 
 if [ -z "$VERSION" ] || [ "$VERSION" = "latest" ]; then
@@ -57,7 +63,7 @@ if [ -z "$VERSION" ] || [ "$VERSION" = "latest" ]; then
   exit 1
 fi
 
-DMG_NAME="${APP_NAME}-${VERSION}-arm64.dmg"
+DMG_NAME="${APP_NAME}-${VERSION}-mac-arm64.dmg"
 BASE="${RELEASES_URL}/download/${TAG}"
 DMG="${TMP}/${DMG_NAME}"
 

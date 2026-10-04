@@ -1,9 +1,9 @@
 {
   "name": "livemark",
   "version": "1.6.3",
-  "description": "Live-updating Markdown viewer for macOS",
+  "description": "Live-updating Markdown viewer",
   "scripts": {
-    "build:frontend": "rm -rf dist/frontend && mkdir -p dist/frontend/renderer && tsc --noEmit && esbuild src/renderer/renderer.ts --bundle --outfile=dist/frontend/renderer/renderer.js --platform=browser --target=safari13.1 && cp src/renderer/styles.css dist/frontend/renderer/ && cp index.html dist/frontend/",
+    "build:frontend": "node scripts/build-frontend.mjs",
     "build": "npm run build:frontend && cargo check --manifest-path src-tauri/Cargo.toml",
     "start": "tauri dev",
     "dev": "tauri dev",

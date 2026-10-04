@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       release_tag:
-        description: Existing tag to build and publish, such as v1.3.0
+        description: Existing source tag to build, such as v1.6.4. Downloads are published as <version>-MAC and <version>-WIN.
         required: true
         type: string
 
@@ -32,13 +32,19 @@ jobs:
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
 
-  build-release:
+  build-macos:
     needs: release-please
     if: ${{ always() && (github.event_name == 'workflow_dispatch' || needs.release-please.outputs.release_created == 'true') }}
     runs-on: macos-15
+    outputs:
+      release_tag: ${{ steps.tag.outputs.release_tag }}
     env:
       RELEASE_TAG: ${{ github.event.inputs.release_tag || needs.release-please.outputs.tag_name }}
     steps:
+      - name: Record release tag
+        id: tag
+        run: echo "release_tag=${RELEASE_TAG}" >> "$GITHUB_OUTPUT"
+
       - name: Check out release tag
         uses: actions/checkout@v6
         with:
@@ -81,73 +87,304 @@ jobs:
           codesign --display --verbose=4 "$APP" 2>&1 | grep -q "Signature=adhoc"
 
       - name: Verify DMG
-        run: hdiutil verify dist/LiveMark-*-arm64.dmg
+        run: hdiutil verify dist/LiveMark-*-mac-arm64.dmg
 
-      - name: Generate checksums
-        working-directory: dist
-        run: shasum -a 256 LiveMark-*-arm64.dmg LiveMark-*-arm64-mac.zip LiveMark-*-arm64.app.tar.gz > SHA256SUMS.txt
-
-      - name: Create GitHub Release if needed
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Stage macOS artifacts
         run: |
-          if ! gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
-            gh release create "$RELEASE_TAG" --verify-tag --title "LiveMark ${RELEASE_TAG#v}" --generate-notes
-          fi
-
-      - name: Upload release files
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
+          mkdir -p release
           if [ ! -f scripts/install.sh ]; then
             git fetch origin main --depth 1
             git checkout origin/main -- scripts/install.sh
           fi
-          gh release upload "$RELEASE_TAG" \
-            dist/LiveMark-*-arm64.dmg \
-            dist/LiveMark-*-arm64-mac.zip \
-            dist/LiveMark-*-arm64.app.tar.gz \
-            dist/LiveMark-*-arm64.app.tar.gz.sig \
-            dist/latest.json \
-            dist/SHA256SUMS.txt \
-            scripts/install.sh \
-            --clobber
+          cp dist/LiveMark-* dist/latest.json scripts/install.sh release/
 
-      - name: Update Homebrew cask on main
+      - name: Upload macOS artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: mac-release
+          path: release/
+          if-no-files-found: error
+
+  build-windows:
+    needs: release-please
+    if: ${{ always() && (github.event_name == 'workflow_dispatch' || needs.release-please.outputs.release_created == 'true') }}
+    runs-on: windows-latest
+    env:
+      RELEASE_TAG: ${{ github.event.inputs.release_tag || needs.release-please.outputs.tag_name }}
+    steps:
+      - name: Check out release tag
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ env.RELEASE_TAG }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Test and build application
+        run: |
+          npm test
+          npm run build
+
+      - name: Package Windows installer
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          npm run tauri build -- --bundles nsis
+          node scripts/prepare-windows-release.mjs x64
+
+      - name: Upload Windows artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-release
+          path: |
+            dist/LiveMark-*-win-x64-setup.exe
+            dist/LiveMark-*-win-x64-setup.exe.sig
+            dist/LiveMark-win-x64-setup.exe
+            dist/windows-x64-platform.json
+          if-no-files-found: error
+
+  build-windows-arm:
+    needs: release-please
+    if: ${{ always() && (github.event_name == 'workflow_dispatch' || needs.release-please.outputs.release_created == 'true') }}
+    runs-on: windows-latest
+    env:
+      RELEASE_TAG: ${{ github.event.inputs.release_tag || needs.release-please.outputs.tag_name }}
+    steps:
+      - name: Check out release tag
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ env.RELEASE_TAG }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-pc-windows-msvc
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Test and build application
+        run: |
+          npm test
+          npm run build
+
+      - name: Package Windows ARM installer
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          npm run tauri build -- --bundles nsis --target aarch64-pc-windows-msvc
+          node scripts/prepare-windows-release.mjs arm64
+
+      - name: Upload Windows ARM artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-arm-release
+          path: |
+            dist/LiveMark-*-win-arm64-setup.exe
+            dist/LiveMark-*-win-arm64-setup.exe.sig
+            dist/LiveMark-win-arm64-setup.exe
+            dist/windows-arm64-platform.json
+          if-no-files-found: error
+
+  publish:
+    needs: [build-macos, build-windows, build-windows-arm]
+    if: ${{ !cancelled() && needs.build-macos.result == 'success' && needs.build-windows.result == 'success' && needs.build-windows-arm.result == 'success' }}
+    runs-on: ubuntu-latest
+    env:
+      RELEASE_TAG: ${{ needs.build-macos.outputs.release_tag }}
+    steps:
+      - name: Check out main
+        uses: actions/checkout@v6
+        with:
+          ref: main
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: parts
+
+      - name: Merge the updater manifest
+        run: |
+          set -euo pipefail
+          mkdir -p dist/mac dist/win
+          cp parts/mac-release/LiveMark-* parts/mac-release/install.sh dist/mac/
+          cp parts/windows-release/LiveMark-* parts/windows-arm-release/LiveMark-* dist/win/
+          node scripts/merge-latest.mjs \
+            parts/mac-release/latest.json \
+            dist/latest.json \
+            parts/windows-release/windows-x64-platform.json \
+            parts/windows-arm-release/windows-arm64-platform.json
+          cp dist/latest.json dist/mac/latest.json
+          cp dist/latest.json dist/win/latest.json
+          (
+            cd dist/mac
+            sha256sum \
+              LiveMark-*-mac-arm64.dmg \
+              LiveMark-mac.dmg \
+              LiveMark-*-mac-arm64-update.tar.gz \
+              > SHA256SUMS.txt
+          )
+          (
+            cd dist/win
+            sha256sum \
+              LiveMark-*-win-x64-setup.exe \
+              LiveMark-*-win-arm64-setup.exe \
+              > SHA256SUMS.txt
+          )
+
+      - name: Publish Mac and Windows releases
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
           VERSION="${RELEASE_TAG#v}"
-          SHA256="$(shasum -a 256 "dist/LiveMark-${VERSION}-arm64.dmg" | awk '{print $1}')"
-          git fetch origin main
-          git checkout main
+          VERSION="${VERSION%-MAC}"
+          VERSION="${VERSION%-WIN}"
+          MAC_TAG="${VERSION}-MAC"
+          WIN_TAG="${VERSION}-WIN"
+          if gh release view "$RELEASE_TAG" --json body --jq .body > /tmp/notes.md 2>/dev/null; then
+            :
+          else
+            printf 'LiveMark %s\n' "$VERSION" > /tmp/notes.md
+          fi
+          if [ ! -s /tmp/notes.md ]; then
+            printf 'LiveMark %s\n' "$VERSION" > /tmp/notes.md
+          fi
+          if ! gh release view "$MAC_TAG" >/dev/null 2>&1; then
+            gh release create "$MAC_TAG" --target "$RELEASE_TAG" --title "LiveMark ${VERSION} for Mac" --notes-file /tmp/notes.md
+          fi
+          if ! gh release view "$WIN_TAG" >/dev/null 2>&1; then
+            gh release create "$WIN_TAG" --target "$RELEASE_TAG" --title "LiveMark ${VERSION} for Windows" --notes-file /tmp/notes.md
+          fi
+          gh release upload "$MAC_TAG" \
+            dist/mac/LiveMark-* \
+            dist/mac/latest.json \
+            dist/mac/SHA256SUMS.txt \
+            dist/mac/install.sh \
+            --clobber
+          gh release upload "$WIN_TAG" \
+            dist/win/LiveMark-* \
+            dist/win/latest.json \
+            dist/win/SHA256SUMS.txt \
+            --clobber
+          if [ "$RELEASE_TAG" = "v${VERSION}" ] && gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh release delete "$RELEASE_TAG" --yes
+          fi
+
+      - name: Update Homebrew cask and download links on main
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          VERSION="${RELEASE_TAG#v}"
+          VERSION="${VERSION%-MAC}"
+          VERSION="${VERSION%-WIN}"
+          SHA256="$(sha256sum "dist/mac/LiveMark-${VERSION}-mac-arm64.dmg" | awk '{print $1}')"
           if [ ! -f Casks/livemark.rb ]; then
             echo "No Homebrew cask on main; skipping"
             exit 0
           fi
-          perl -i -pe "s/^  version \".*\"/  version \"${VERSION}\"/" Casks/livemark.rb
-          perl -i -pe "s/^  sha256 \".*\"/  sha256 \"${SHA256}\"/" Casks/livemark.rb
-          if git diff --quiet -- Casks/livemark.rb; then
-            echo "Homebrew cask already up to date"
+          python3 - "$VERSION" "$SHA256" <<'PY'
+          import pathlib, sys
+          version, sha = sys.argv[1], sys.argv[2]
+          cask = pathlib.Path("Casks/livemark.rb")
+          text = cask.read_text()
+          lines = []
+          for line in text.splitlines(keepends=True):
+              if line.startswith('  version "'):
+                  line = f'  version "{version}"\n'
+              elif line.startswith('  sha256 "'):
+                  line = f'  sha256 "{sha}"\n'
+              elif line.startswith('  url "'):
+                  line = (
+                      '  url "https://github.com/rcoenen/LiveMark/releases/download/'
+                      f'{version}-MAC/LiveMark-{version}-mac-arm64.dmg"\n'
+                  )
+              lines.append(line)
+          cask.write_text("".join(lines))
+          readme = pathlib.Path("README.md")
+          body = readme.read_text()
+          import re
+          body = re.sub(
+              r"https://img\.shields\.io/badge/download%20mac-[^-]+-7C3AED",
+              f"https://img.shields.io/badge/download%20mac-{version}-7C3AED",
+              body,
+          )
+          body = re.sub(
+              r"https://img\.shields\.io/badge/download%20windows-[^-]+-7C3AED",
+              f"https://img.shields.io/badge/download%20windows-{version}-7C3AED",
+              body,
+          )
+          body = re.sub(
+              r"releases/download/[0-9.]+-MAC/",
+              f"releases/download/{version}-MAC/",
+              body,
+          )
+          body = re.sub(
+              r"releases/download/[0-9.]+-WIN/",
+              f"releases/download/{version}-WIN/",
+              body,
+          )
+          readme.write_text(body)
+          PY
+          python3 - <<'PY'
+          import pathlib, re
+          path = pathlib.Path("Casks/livemark.rb")
+          text = path.read_text()
+          replacement = """  livecheck do
+            url :url
+            regex(/^v?(\\d+(?:\\.\\d+)+)-MAC$/i)
+            strategy :github_releases
+          end
+          """
+          text2, n = re.subn(
+              r"  livecheck do\n(?:    .*\n)*?  end\n",
+              lambda _match: replacement,
+              text,
+              count=1,
+          )
+          if n != 1:
+              raise SystemExit("could not update the cask livecheck")
+          path.write_text(text2)
+          PY
+          if git diff --quiet -- Casks/livemark.rb README.md; then
+            echo "Homebrew cask and download links already up to date"
             exit 0
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add Casks/livemark.rb
-          git commit -m "chore(brew): bump livemark cask to ${VERSION}"
+          git add Casks/livemark.rb README.md
+          git commit -m "chore: point ${VERSION} downloads at ${VERSION}-MAC and ${VERSION}-WIN"
           git push origin main
-
-      - name: Preserve workflow artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: LiveMark-${{ env.RELEASE_TAG }}-arm64
-          path: |
-            dist/LiveMark-*-arm64.dmg
-            dist/LiveMark-*-arm64-mac.zip
-            dist/LiveMark-*-arm64.app.tar.gz
-            dist/LiveMark-*-arm64.app.tar.gz.sig
-            dist/latest.json
-            dist/SHA256SUMS.txt
-            scripts/install.sh
-          if-no-files-found: error
