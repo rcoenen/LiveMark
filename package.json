@@ -1,6 +1,6 @@
 {
   "name": "livemark",
-  "version": "1.6.3",
+  "version": "1.6.4",
   "description": "Live-updating Markdown viewer",
   "scripts": {
     "build:frontend": "node scripts/build-frontend.mjs",
