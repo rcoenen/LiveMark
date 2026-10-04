@@ -16,7 +16,7 @@
     <button id="go-to-file-btn" type="button" class="rail__search">
       <svg width="13" height="13" viewBox="0 0 15 15" fill="none" stroke="currentColor" stroke-width="1.2" aria-hidden="true"><circle cx="6.5" cy="6.5" r="4.5"></circle><path d="M10 10l3.5 3.5"></path></svg>
       <span data-string="rail.goToFile"></span>
-      <kbd class="kbd">⌘P</kbd>
+      <kbd class="kbd" data-string="shortcut.goToFile"></kbd>
     </button>
     <div id="rail-heading" class="rail__heading"></div>
     <div id="document-tabs" class="document-tabs" role="tablist" aria-orientation="vertical" aria-labelledby="rail-heading"></div>
@@ -58,7 +58,7 @@
       <div id="live-status-detail" class="live-status__detail"></div>
       <div class="live-status__actions">
         <button id="status-action-btn" type="button" class="link-button" hidden></button>
-        <kbd id="status-action-kbd" class="kbd" hidden>⌘⇧N</kbd>
+        <kbd id="status-action-kbd" class="kbd" hidden data-string="shortcut.nextChange"></kbd>
         <button id="pause-btn" type="button" class="link-button live-status__pause"></button>
       </div>
       <div class="live-status__recent">
@@ -90,7 +90,7 @@
     <div id="history-list" class="history-list"></div>
     <div class="popover__footer">
       <button id="clear-marks-btn" type="button" class="link-button" data-string="history.clearMarks"></button>
-      <span class="popover__step"><span data-string="history.step"></span> <kbd class="kbd kbd--boxed">⌘⇧N</kbd></span>
+      <span class="popover__step"><span data-string="history.step"></span> <kbd class="kbd kbd--boxed" data-string="shortcut.nextChange"></kbd></span>
     </div>
     <div class="popover__settings">
       <span class="margin-section__heading" data-string="settings.title"></span>
@@ -116,6 +116,17 @@
   <div id="tab-menu" class="tab-menu" role="menu" data-string-aria-label="tab.menu" hidden>
     <button id="tab-menu-copy-path" type="button" class="tab-menu__item" role="menuitem" data-string="tab.copyPath"></button>
     <button id="tab-menu-open-folder" type="button" class="tab-menu__item" role="menuitem" data-string="tab.openFolder"></button>
+  </div>
+
+  <div id="about-dialog" class="about" role="dialog" aria-modal="true" data-string-aria-label="about.label" hidden>
+    <div class="about__card">
+      <div class="about__header">
+        <span class="about__name" data-string="app.name"></span>
+        <span id="about-version" class="about__version"></span>
+      </div>
+      <p class="about__description" data-string="about.description"></p>
+      <button id="about-close-btn" type="button" class="link-button" data-string="about.close"></button>
+    </div>
   </div>
 
   <div id="update-notification" class="toast" role="status">

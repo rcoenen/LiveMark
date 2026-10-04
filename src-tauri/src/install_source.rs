@@ -65,6 +65,14 @@ mod tests {
     }
 
     #[test]
+    fn per_user_windows_installs_are_direct() {
+        assert_eq!(
+            classify_path(Path::new(r"C:\Users\alice\AppData\Local\LiveMark\LiveMark.exe")),
+            InstallSource::Direct
+        );
+    }
+
+    #[test]
     fn plain_applications_installs_are_direct() {
         assert_eq!(
             classify_path(Path::new("/Applications/LiveMark.app/Contents/MacOS/livemark")),

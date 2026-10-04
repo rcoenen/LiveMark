@@ -16,12 +16,13 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["app", "dmg"],
+    "targets": ["app", "dmg", "nsis"],
     "category": "DeveloperTool",
-    "copyright": "Live-updating Markdown viewer for macOS",
+    "copyright": "Live-updating Markdown viewer",
     "icon": [
       "../build/icon.icns",
-      "../build/icon.png"
+      "../build/icon.png",
+      "../build/icon.ico"
     ],
     "resources": {
       "../resources/bin/livemark": "bin/livemark"
@@ -30,12 +31,29 @@
       {
         "ext": ["md", "markdown"],
         "name": "Markdown Document",
-        "role": "Viewer",
-        "mimeType": "text/markdown"
+        "description": "Markdown Document",
+        "role": "Editor",
+        "rank": "Owner",
+        "mimeType": "text/markdown",
+        "contentTypes": ["com.livemark.markdown", "net.daringfireball.markdown"],
+        "exportedType": {
+          "identifier": "com.livemark.markdown",
+          "conformsTo": ["public.plain-text", "public.text"]
+        }
       }
     ],
     "macOS": {
       "minimumSystemVersion": "11.0"
+    },
+    "windows": {
+      "webviewInstallMode": {
+        "type": "downloadBootstrapper",
+        "silent": true
+      },
+      "nsis": {
+        "installMode": "currentUser",
+        "installerHooks": "windows/hooks.nsh"
+      }
     }
   },
   "plugins": {
