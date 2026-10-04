@@ -22,7 +22,7 @@ git -C "$work" config user.email "41898282+github-actions[bot]@users.noreply.git
 
 if git -C "$work" ls-remote --exit-code --heads origin download-badges >/dev/null 2>&1; then
   git -C "$work" fetch --depth 1 origin download-badges
-  git -C "$work" checkout download-badges
+  git -C "$work" checkout -B download-badges FETCH_HEAD
 else
   git -C "$work" checkout --orphan download-badges
   git -C "$work" rm -rf --cached . >/dev/null 2>&1 || true
