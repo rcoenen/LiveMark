@@ -1,4 +1,4 @@
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 const repository = process.env.GITHUB_REPOSITORY || 'rcoenen/LiveMark';
@@ -41,17 +41,21 @@ while (page < 20) {
   page += 1;
 }
 
-function badge(label, message) {
+const version = JSON.parse(
+  readFileSync(new URL('../package.json', import.meta.url), 'utf8'),
+).version;
+
+function badge(label, count) {
   return {
     schemaVersion: 1,
     label,
-    message: String(message),
-    color: '2C7BE5',
+    message: `${version} · ${count}`,
+    color: '7C3AED',
   };
 }
 
-const macBadge = badge('mac', mac);
-const windowsBadge = badge('windows', windows);
+const macBadge = badge('download mac', mac);
+const windowsBadge = badge('download windows', windows);
 
 if (outDir) {
   mkdirSync(outDir, { recursive: true });

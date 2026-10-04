@@ -5,8 +5,8 @@
 </div>
 
 <p align="center">
-  <a href="https://github.com/rcoenen/LiveMark/releases/download/1.6.4-MAC/LiveMark-mac.dmg"><img alt="Download Mac" src="https://img.shields.io/badge/download%20mac-1.6.4-7C3AED?style=for-the-badge"></a>
-  <a href="https://github.com/rcoenen/LiveMark/releases/download/1.6.4-WIN/LiveMark-win-x64-setup.exe"><img alt="Download Windows" src="https://img.shields.io/badge/download%20windows-1.6.4-7C3AED?style=for-the-badge"></a>
+  <a href="https://github.com/rcoenen/LiveMark/releases/download/1.6.4-MAC/LiveMark-mac.dmg"><img alt="Download Mac" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Frcoenen%2FLiveMark%2Fdownload-badges%2Fmac.json&amp;style=for-the-badge"></a>
+  <a href="https://github.com/rcoenen/LiveMark/releases/download/1.6.4-WIN/LiveMark-win-x64-setup.exe"><img alt="Download Windows" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Frcoenen%2FLiveMark%2Fdownload-badges%2Fwindows.json&amp;style=for-the-badge"></a>
   <a href="https://github.com/rcoenen/LiveMark/actions/workflows/ci.yml"><img alt="Build" src="https://img.shields.io/github/actions/workflow/status/rcoenen/LiveMark/ci.yml?branch=main&amp;style=for-the-badge&amp;label=build"></a>
   <a href="LICENSE"><img alt="License" src="https://img.shields.io/github/license/rcoenen/LiveMark?style=for-the-badge&amp;label=license"></a>
 </p>
@@ -14,6 +14,8 @@
 LiveMark renders local Markdown files and refreshes the preview whenever they change on disk. Open several documents in tabs and keep their previews running side by side.
 
 LiveMark uses Tauri. On macOS it uses the system WebView, and on Windows it uses WebView2. It does not bundle Electron, Chromium, or Node.js.
+
+The number on each download badge counts that platform’s installer files only: macOS `.dmg` files, and Windows `*-setup.exe` files.
 
 ## Install
 
