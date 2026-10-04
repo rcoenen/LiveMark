@@ -140,11 +140,28 @@ jobs:
           npm run build
 
       - name: Package Windows installer
+        shell: bash
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: |
           npm run tauri build -- --bundles nsis
+          node --input-type=module <<'EOF'
+          import { readFileSync, writeFileSync } from 'node:fs';
+          const path = 'scripts/prepare-windows-release.mjs';
+          const bad = `const targetDir = arch === 'arm64' ? 'aarch64-pc-windows-msvc' : 'release';
+          const source = join('src-tauri', 'target', targetDir, 'release', 'bundle', 'nsis', tauriName);`;
+          const good = `const source = join(
+            'src-tauri',
+            'target',
+            ...(arch === 'arm64' ? ['aarch64-pc-windows-msvc', 'release'] : ['release']),
+            'bundle',
+            'nsis',
+            tauriName,
+          );`;
+          const source = readFileSync(path, 'utf8');
+          if (source.includes(bad)) writeFileSync(path, source.replace(bad, good));
+          EOF
           node scripts/prepare-windows-release.mjs x64
 
       - name: Upload Windows artifacts
@@ -195,11 +212,28 @@ jobs:
           npm run build
 
       - name: Package Windows ARM installer
+        shell: bash
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: |
           npm run tauri build -- --bundles nsis --target aarch64-pc-windows-msvc
+          node --input-type=module <<'EOF'
+          import { readFileSync, writeFileSync } from 'node:fs';
+          const path = 'scripts/prepare-windows-release.mjs';
+          const bad = `const targetDir = arch === 'arm64' ? 'aarch64-pc-windows-msvc' : 'release';
+          const source = join('src-tauri', 'target', targetDir, 'release', 'bundle', 'nsis', tauriName);`;
+          const good = `const source = join(
+            'src-tauri',
+            'target',
+            ...(arch === 'arm64' ? ['aarch64-pc-windows-msvc', 'release'] : ['release']),
+            'bundle',
+            'nsis',
+            tauriName,
+          );`;
+          const source = readFileSync(path, 'utf8');
+          if (source.includes(bad)) writeFileSync(path, source.replace(bad, good));
+          EOF
           node scripts/prepare-windows-release.mjs arm64
 
       - name: Upload Windows ARM artifacts

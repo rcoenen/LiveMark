@@ -11,8 +11,14 @@ if (arch !== 'x64' && arch !== 'arm64') {
 const platformKey = arch === 'arm64' ? 'windows-aarch64' : 'windows-x86_64';
 const version = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')).version;
 const tauriName = `LiveMark_${version}_${arch}-setup.exe`;
-const targetDir = arch === 'arm64' ? 'aarch64-pc-windows-msvc' : 'release';
-const source = join('src-tauri', 'target', targetDir, 'release', 'bundle', 'nsis', tauriName);
+const source = join(
+  'src-tauri',
+  'target',
+  ...(arch === 'arm64' ? ['aarch64-pc-windows-msvc', 'release'] : ['release']),
+  'bundle',
+  'nsis',
+  tauriName,
+);
 const versioned = `LiveMark-${version}-win-${arch}-setup.exe`;
 const alias = `LiveMark-win-${arch}-setup.exe`;
 
