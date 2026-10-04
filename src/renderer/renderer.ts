@@ -1181,8 +1181,27 @@ document.addEventListener('DOMContentLoaded', () => {
       setSplit(!split);
     } else if (command === 'toggle-pause' && documentState && !documentState.missing) {
       setPaused(documentState, !documentState.paused);
+    } else if (command === 'export-pdf') {
+      void exportFocusedDocument();
     } else if (command === 'check-updates') {
       updates.checkManually();
+    }
+  }
+
+  let exportInFlight = false;
+
+  async function exportFocusedDocument(): Promise<void> {
+    const documentState = getActiveDocument();
+    const pane = focusedPane();
+    if (exportInFlight || !documentState || !pane.documentId) return;
+    exportInFlight = true;
+    for (const candidate of panes) candidate.element.classList.remove('is-print-target');
+    pane.element.classList.add('is-print-target');
+    try {
+      await livemark.exportPdf(documentState.path);
+    } finally {
+      pane.element.classList.remove('is-print-target');
+      exportInFlight = false;
     }
   }
 
@@ -1209,6 +1228,8 @@ document.addEventListener('DOMContentLoaded', () => {
       command = 'text-zoom-out';
     } else if (key === '0') {
       command = 'text-zoom-reset';
+    } else if (key === 'e') {
+      command = 'export-pdf';
     } else if (key === 'p') {
       command = 'go-to-file';
     } else if (key === 'f') {

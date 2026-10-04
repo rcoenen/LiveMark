@@ -56,6 +56,7 @@ export interface LiveMarkBridge {
   locateDocument(documentId: string): Promise<void>;
   openContainingFolder(documentId: string): Promise<void>;
   listSiblingDocuments(): Promise<string[]>;
+  exportPdf(documentPath: string): Promise<void>;
 }
 
 export function installLiveMarkBridge(): LiveMarkBridge {
@@ -97,6 +98,7 @@ export function installLiveMarkBridge(): LiveMarkBridge {
     locateDocument: (documentId) => invoke<void>('locate_document', { documentId }),
     openContainingFolder: (documentId) => invoke<void>('open_containing_folder', { documentId }),
     listSiblingDocuments: () => invoke<string[]>('list_sibling_documents'),
+    exportPdf: (documentPath) => invoke<void>('export_pdf', { documentPath }),
   };
 
   window.livemark = bridge;

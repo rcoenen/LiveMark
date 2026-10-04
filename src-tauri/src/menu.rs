@@ -56,9 +56,11 @@ pub fn build_menu(app: &App) -> tauri::Result<Menu<Wry>> {
         .accelerator("CmdOrCtrl+Shift+W")
         .build(app)?;
     let go_to_file = renderer_item(app, "go-to-file", "Go to File…", "CmdOrCtrl+P")?;
+    let export_pdf = renderer_item(app, "export-pdf", "Export as PDF…", "CmdOrCtrl+E")?;
     let file_menu = SubmenuBuilder::new(app, "File")
         .item(&open)
         .item(&go_to_file)
+        .item(&export_pdf)
         .separator()
         .item(&close_tab)
         .item(&close_window)
@@ -66,7 +68,12 @@ pub fn build_menu(app: &App) -> tauri::Result<Menu<Wry>> {
 
     let find = renderer_item(app, "find", "Find…", "CmdOrCtrl+F")?;
     let select_all = renderer_item(app, "select-all", "Select All", "CmdOrCtrl+A")?;
-    let copy_plain_text = renderer_item(app, "copy-plain-text", "Copy as Plain Text", "CmdOrCtrl+Shift+C")?;
+    let copy_plain_text = renderer_item(
+        app,
+        "copy-plain-text",
+        "Copy as Plain Text",
+        "CmdOrCtrl+Shift+C",
+    )?;
     let edit_menu = SubmenuBuilder::new(app, "Edit")
         .copy()
         .item(&copy_plain_text)
@@ -87,8 +94,18 @@ pub fn build_menu(app: &App) -> tauri::Result<Menu<Wry>> {
     let reset_zoom = renderer_item(app, "text-zoom-reset", "Actual Size", "CmdOrCtrl+0")?;
     let zoom_in = renderer_item(app, "text-zoom-in", "Make Text Bigger", "CmdOrCtrl+=")?;
     let zoom_out = renderer_item(app, "text-zoom-out", "Make Text Smaller", "CmdOrCtrl+-")?;
-    let toggle_pause = renderer_item(app, "toggle-pause", "Pause Live Reload", "CmdOrCtrl+Shift+P")?;
-    let next_change = renderer_item(app, "next-change", "Jump to Next Change", "CmdOrCtrl+Shift+N")?;
+    let toggle_pause = renderer_item(
+        app,
+        "toggle-pause",
+        "Pause Live Reload",
+        "CmdOrCtrl+Shift+P",
+    )?;
+    let next_change = renderer_item(
+        app,
+        "next-change",
+        "Jump to Next Change",
+        "CmdOrCtrl+Shift+N",
+    )?;
     let toggle_split = renderer_item(app, "toggle-split", "Split View", "CmdOrCtrl+\\")?;
     let view_menu = SubmenuBuilder::new(app, "View")
         .item(&toggle_pause)

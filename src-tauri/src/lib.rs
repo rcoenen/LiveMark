@@ -2,18 +2,19 @@ mod document;
 mod install_source;
 mod links;
 mod menu;
+mod pdf;
 mod session;
 
 use crate::document::{
     DocumentRegistry, DocumentSnapshot, list_markdown_files, load_snapshot, resolve_document_path,
 };
 use crate::install_source::install_source;
-use crate::session::SessionState;
 use crate::links::{LinkTarget, classify_link, resolve_image_path};
 use crate::menu::{
     MENU_CLOSE_TAB, MENU_CLOSE_WINDOW, MENU_FORCE_RELOAD, MENU_INSTALL_CLI, MENU_OPEN, MENU_RELOAD,
     MENU_TOGGLE_DEVTOOLS, RENDERER_COMMAND_PREFIX, build_menu,
 };
+use crate::session::SessionState;
 use base64::Engine;
 use notify::{Event, RecommendedWatcher, RecursiveMode, Watcher};
 use serde::Serialize;
@@ -533,7 +534,11 @@ fn resolve_local_image(
 }
 
 /// Points an open document at a new path chosen by the user, keeping its place in the rail.
-fn relocate_document_to(app: &AppHandle<Wry>, document_id: &str, new_path: &Path) -> Result<(), String> {
+fn relocate_document_to(
+    app: &AppHandle<Wry>,
+    document_id: &str,
+    new_path: &Path,
+) -> Result<(), String> {
     let new_id = resolve_document_path(&new_path.to_string_lossy(), &current_directory())?
         .to_string_lossy()
         .into_owned();
@@ -616,6 +621,54 @@ fn open_containing_folder(app: AppHandle<Wry>, document_id: String) -> Result<()
         .map_err(|error| format!("could not open folder: {error}"))
 }
 
+// Async so the save panel is not waited on from the main thread. A sync command
+// runs there, and the panel cannot close while that thread is blocked.
+#[tauri::command]
+async fn export_pdf(app: AppHandle<Wry>, document_path: String) -> Result<(), String> {
+    let source = PathBuf::from(&document_path);
+    let file_name = pdf::pdf_file_name(&source);
+    let directory = source
+        .parent()
+        .filter(|dir| !dir.as_os_str().is_empty())
+        .map(Path::to_path_buf);
+    let Some(window) = app.get_webview_window(MAIN_WINDOW_LABEL) else {
+        return Ok(());
+    };
+
+    let mut dialog = app
+        .dialog()
+        .file()
+        .set_title("Export as PDF")
+        .add_filter("PDF", &["pdf"])
+        .set_file_name(file_name)
+        .set_parent(&window);
+    if let Some(directory) = directory {
+        dialog = dialog.set_directory(directory);
+    }
+    let Some(chosen) = dialog.blocking_save_file() else {
+        return Ok(());
+    };
+    let path = match chosen.into_path() {
+        Ok(path) => pdf::with_pdf_extension(path),
+        Err(_) => {
+            show_export_error(&app, "That location cannot be used.");
+            return Ok(());
+        }
+    };
+    if let Err(error) = pdf::write_pdf(&window, path) {
+        show_export_error(&app, &error);
+    }
+    Ok(())
+}
+
+fn show_export_error(app: &AppHandle<Wry>, message: &str) {
+    app.dialog()
+        .message(message)
+        .kind(MessageDialogKind::Error)
+        .title("Could not export PDF")
+        .show(|_| {});
+}
+
 #[tauri::command]
 fn open_link(app: AppHandle<Wry>, document_id: String, href: String) -> Result<(), String> {
     match classify_link(&href) {
@@ -649,11 +702,12 @@ fn is_app_navigation(url: &tauri::Url, dev_origin: Option<&tauri::Url>) -> bool 
 
 fn create_main_window(app: &tauri::App<Wry>) -> tauri::Result<()> {
     let dev_origin = app.config().build.dev_url.clone();
-    let builder = WebviewWindowBuilder::new(app, MAIN_WINDOW_LABEL, WebviewUrl::App("index.html".into()))
-        .title("LiveMark")
-        .inner_size(1240.0, 760.0)
-        .min_inner_size(560.0, 300.0)
-        .on_navigation(move |url| is_app_navigation(url, dev_origin.as_ref()));
+    let builder =
+        WebviewWindowBuilder::new(app, MAIN_WINDOW_LABEL, WebviewUrl::App("index.html".into()))
+            .title("LiveMark")
+            .inner_size(1240.0, 760.0)
+            .min_inner_size(560.0, 300.0)
+            .on_navigation(move |url| is_app_navigation(url, dev_origin.as_ref()));
     #[cfg(target_os = "macos")]
     let builder = builder
         .title_bar_style(tauri::TitleBarStyle::Overlay)
@@ -823,7 +877,8 @@ pub fn run() {
             open_link,
             locate_document,
             open_containing_folder,
-            list_sibling_documents
+            list_sibling_documents,
+            export_pdf
         ])
         .on_menu_event(handle_menu_event)
         .on_window_event(|window, event| {
@@ -865,7 +920,9 @@ pub fn run() {
             if let Ok(directory) = app.path().app_data_dir() {
                 let restored = session::read_session(&session::session_file(directory));
                 for document_id in restored.documents {
-                    if let Err(error) = register_document(app.handle(), &document_id, &current_directory()) {
+                    if let Err(error) =
+                        register_document(app.handle(), &document_id, &current_directory())
+                    {
                         eprintln!("could not restore document {document_id}: {error}");
                     }
                 }
@@ -911,10 +968,19 @@ mod tests {
         let url = |value: &str| tauri::Url::parse(value).expect("test URL should parse");
         let dev = url("http://127.0.0.1:1430/");
 
-        assert!(is_app_navigation(&url("tauri://localhost/index.html"), None));
+        assert!(is_app_navigation(
+            &url("tauri://localhost/index.html"),
+            None
+        ));
         assert!(is_app_navigation(&url("http://tauri.localhost/"), None));
-        assert!(is_app_navigation(&url("http://127.0.0.1:1430/index.html"), Some(&dev)));
-        assert!(!is_app_navigation(&url("http://127.0.0.1:1430/index.html"), None));
+        assert!(is_app_navigation(
+            &url("http://127.0.0.1:1430/index.html"),
+            Some(&dev)
+        ));
+        assert!(!is_app_navigation(
+            &url("http://127.0.0.1:1430/index.html"),
+            None
+        ));
         assert!(!is_app_navigation(&url("https://example.com/"), Some(&dev)));
         assert!(!is_app_navigation(&url("file:///etc/passwd"), Some(&dev)));
     }
