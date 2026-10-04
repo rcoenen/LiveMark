@@ -280,6 +280,8 @@ jobs:
           VERSION="${VERSION%-WIN}"
           MAC_TAG="${VERSION}-MAC"
           WIN_TAG="${VERSION}-WIN"
+          git fetch --depth=1 origin "refs/tags/${RELEASE_TAG}"
+          TARGET="$(git rev-parse FETCH_HEAD)"
           if gh release view "$RELEASE_TAG" --json body --jq .body > /tmp/notes.md 2>/dev/null; then
             :
           else
@@ -289,10 +291,10 @@ jobs:
             printf 'LiveMark %s\n' "$VERSION" > /tmp/notes.md
           fi
           if ! gh release view "$MAC_TAG" >/dev/null 2>&1; then
-            gh release create "$MAC_TAG" --target "$RELEASE_TAG" --title "LiveMark ${VERSION} for Mac" --notes-file /tmp/notes.md
+            gh release create "$MAC_TAG" --target "$TARGET" --title "LiveMark ${VERSION} for Mac" --notes-file /tmp/notes.md
           fi
           if ! gh release view "$WIN_TAG" >/dev/null 2>&1; then
-            gh release create "$WIN_TAG" --target "$RELEASE_TAG" --title "LiveMark ${VERSION} for Windows" --notes-file /tmp/notes.md
+            gh release create "$WIN_TAG" --target "$TARGET" --title "LiveMark ${VERSION} for Windows" --notes-file /tmp/notes.md
           fi
           gh release upload "$MAC_TAG" \
             dist/mac/LiveMark-* \
