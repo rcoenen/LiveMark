@@ -1,17 +1,17 @@
 cask "livemark" do
-  version "1.6.4"
-  sha256 "56fff9a085f80e11be015f3c84808d41c38189a861606054e65636328ae0bfe2"
+  version "1.6.5"
+  sha256 "421a07e4120d44f4f10c1db34dae54438b786305e1f338ba5318eb55fb69fea9"
 
-  url "https://github.com/rcoenen/LiveMark/releases/download/#{version}-MAC/LiveMark-#{version}-mac-arm64.dmg"
+  url "https://github.com/rcoenen/LiveMark/releases/download/1.6.5-MAC/LiveMark-1.6.5-mac-arm64.dmg"
   name "LiveMark"
   desc "Live-updating Markdown viewer"
   homepage "https://github.com/rcoenen/LiveMark"
 
   livecheck do
-    url :url
-    regex(/^v?(\d+(?:\.\d+)+)-MAC$/i)
-    strategy :github_releases
-  end
+  url :url
+  regex(/^v?(\d+(?:\.\d+)+)-MAC$/i)
+  strategy :github_releases
+end
 
   depends_on arch: :arm64
   depends_on :macos

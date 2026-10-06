@@ -5,8 +5,8 @@
 </div>
 
 <p align="center">
-  <a href="https://github.com/rcoenen/LiveMark/releases/download/1.6.4-MAC/LiveMark-mac.dmg"><img alt="Download Mac" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Frcoenen%2FLiveMark%2Fdownload-badges%2Fmac.json&amp;style=for-the-badge"></a>
-  <a href="https://github.com/rcoenen/LiveMark/releases/download/1.6.4-WIN/LiveMark-win-x64-setup.exe"><img alt="Download Windows" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Frcoenen%2FLiveMark%2Fdownload-badges%2Fwindows.json&amp;style=for-the-badge"></a>
+  <a href="https://github.com/rcoenen/LiveMark/releases/download/1.6.5-MAC/LiveMark-mac.dmg"><img alt="Download Mac" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Frcoenen%2FLiveMark%2Fdownload-badges%2Fmac.json&amp;style=for-the-badge"></a>
+  <a href="https://github.com/rcoenen/LiveMark/releases/download/1.6.5-WIN/LiveMark-win-x64-setup.exe"><img alt="Download Windows" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Frcoenen%2FLiveMark%2Fdownload-badges%2Fwindows.json&amp;style=for-the-badge"></a>
   <a href="https://github.com/rcoenen/LiveMark/actions/workflows/ci.yml"><img alt="Build" src="https://img.shields.io/github/actions/workflow/status/rcoenen/LiveMark/ci.yml?branch=main&amp;style=for-the-badge&amp;label=build"></a>
   <a href="LICENSE"><img alt="License" src="https://img.shields.io/github/license/rcoenen/LiveMark?style=for-the-badge&amp;label=license"></a>
 </p>
@@ -40,7 +40,7 @@ Or:
 curl -fsSL https://raw.githubusercontent.com/rcoenen/LiveMark/main/scripts/install.sh | bash
 ```
 
-Or download the [DMG](https://github.com/rcoenen/LiveMark/releases/download/1.6.4-MAC/LiveMark-mac.dmg), drag LiveMark into Applications, then:
+Or download the [DMG](https://github.com/rcoenen/LiveMark/releases/download/1.6.5-MAC/LiveMark-mac.dmg), drag LiveMark into Applications, then:
 
 ```sh
 xattr -cr /Applications/LiveMark.app
@@ -52,7 +52,7 @@ The first time you open a packaged copy of this version, it becomes the app for 
 
 ### Windows
 
-Download the [x64 installer](https://github.com/rcoenen/LiveMark/releases/download/1.6.4-WIN/LiveMark-win-x64-setup.exe) for Intel and AMD PCs, or the [arm64 installer](https://github.com/rcoenen/LiveMark/releases/download/1.6.4-WIN/LiveMark-win-arm64-setup.exe) for ARM PCs. The tag is `1.6.4-WIN`. The Mac download for the same version is `1.6.4-MAC`.
+Download the [x64 installer](https://github.com/rcoenen/LiveMark/releases/download/1.6.5-WIN/LiveMark-win-x64-setup.exe) for Intel and AMD PCs, or the [arm64 installer](https://github.com/rcoenen/LiveMark/releases/download/1.6.5-WIN/LiveMark-win-arm64-setup.exe) for ARM PCs. The tag is `1.6.4-WIN`. The Mac download for the same version is `1.6.4-MAC`.
 
 The installer runs for the current user, under `%LOCALAPPDATA%\LiveMark`, and does not ask for an administrator account. It is unsigned; Windows SmartScreen shows **More info**, then **Run anyway**.
 
