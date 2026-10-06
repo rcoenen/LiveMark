@@ -2,7 +2,18 @@ import { htmlToPlainText, markdownForCopy, selectionCoversElement } from './copy
 import { renderMarkdown } from './markdown';
 import { DOCUMENT_DRAG_TYPE, DocumentPane, type PaneHost } from './pane';
 import { installLiveMarkBridge, type DocumentSnapshot } from './platform';
-import { RAIL_WIDTH_DEFAULT, RAIL_WIDTH_MAX, RAIL_WIDTH_MIN, dockedRailWidth, railWidthLimit } from './rail-width';
+import {
+  MOVABLE_SECTIONS,
+  SECTION_ORDER,
+  otherPanel,
+  parseLayout,
+  resolvePlacement,
+  type CollapsibleSection,
+  type DetailsState,
+  type MovableSection,
+  type PanelId,
+} from './panels';
+import { DETAILS_WIDTH, RAIL_WIDTH_DEFAULT, RAIL_WIDTH_MAX, RAIL_WIDTH_MIN, dockedRailWidth, railWidthLimit } from './rail-width';
 import { applyStaticStrings, t, tCount } from './strings';
 import { initUpdates } from './updates';
 import { diffReload, fuzzyScore, indexBlocks, isReloadOnScreen, type BlockIndex, type ReloadEntry } from './reloads';
@@ -40,8 +51,13 @@ const EDITING_WINDOW_MS = 10000;
 const EDITING_THRESHOLD = 3;
 const MIN_SPLIT_WIDTH = 1180;
 const MARGIN_COLUMN_QUERY = '(min-width: 1141px)';
-/** Rail (232) + document padding (80) + the 680px measure. Narrower than this, the rail would crush the document. */
-const RAIL_COLLAPSE_QUERY = '(max-width: 991px)';
+/** Rail (232) + workspace and page padding (128) + the 680px measure. Narrower than this, the rail would crush the document. */
+const RAIL_COLLAPSE_QUERY = '(max-width: 1039px)';
+const DETAILS_STRIP_WIDTH = 44;
+const PANELS_KEY = 'livemark-panels';
+const SECTION_DRAG_TYPE = 'application/x-livemark-section';
+/** Scrolled this far, the document title is out of sight and the title bar names the file and section. */
+const CRUMB_SCROLL_THRESHOLD = 120;
 const RECENT_RELOADS = 3;
 const THEME_KEY = 'livemark-theme';
 const SETTINGS_KEY = 'livemark-reload-settings';
@@ -125,7 +141,28 @@ document.addEventListener('DOMContentLoaded', () => {
   const railEl = byId('rail');
   const railToggle = byId<HTMLButtonElement>('rail-toggle');
   const railToggleLabel = byId('rail-toggle-label');
-  const railFooterEl = railEl.querySelector('.rail__footer') as HTMLElement;
+  const railSlotsEl = byId('rail-slots');
+  const detailsSlotsEl = byId('details-slots');
+  const detailsStripEl = byId('details-strip');
+  const detailsStripCountEl = byId('details-strip-count');
+  const detailsShowBtn = byId<HTMLButtonElement>('details-show-btn');
+  const changesSectionEl = byId('changes-section');
+  const changesSummaryEl = byId('changes-summary');
+  const outlineSummaryEl = byId('outline-summary');
+  const outlineLegendEl = byId('outline-legend');
+  const railCountEl = byId('rail-count');
+  const railMiniEl = byId('rail-mini');
+  const railMiniVersionEl = byId('rail-mini-version');
+  const railMiniUpdateBtn = byId<HTMLButtonElement>('rail-mini-update');
+  const railMiniUpdateTextEl = byId('rail-mini-update-text');
+  const railMiniThemeBtn = byId<HTMLButtonElement>('rail-mini-theme');
+  const updateBannerEl = byId('app-update-banner');
+  const updateTextEl = byId('app-update-text');
+  const crumbEl = byId('workspace-crumb');
+  const crumbNameEl = byId('workspace-crumb-name');
+  const crumbSectionEl = byId('workspace-crumb-section');
+  const sectionEls: Record<MovableSection, HTMLElement> = { changes: changesSectionEl, outline: byId('outline') };
+  const slotEls: Record<PanelId, HTMLElement> = { rail: railSlotsEl, details: detailsSlotsEl };
   const findBarEl = byId('find-bar');
   const findInput = byId<HTMLInputElement>('find-input');
   const findCountEl = byId('find-count');
@@ -178,11 +215,30 @@ document.addEventListener('DOMContentLoaded', () => {
   let draggedDocumentId: string | null = null;
   const marginColumnMedia = window.matchMedia(MARGIN_COLUMN_QUERY);
   const railCollapseMedia = window.matchMedia(RAIL_COLLAPSE_QUERY);
+  const panelLayout = parseLayout(localStorage.getItem(PANELS_KEY));
+  let draggedSection: MovableSection | null = null;
+
+  function savePanelLayout(): void {
+    localStorage.setItem(PANELS_KEY, JSON.stringify(panelLayout));
+  }
+
+  /** The rail is out of the layout when the window is too narrow or the user hid it. */
+  const railCollapsed = (): boolean => railCollapseMedia.matches || panelLayout.railHidden;
+
+  function detailsState(): DetailsState {
+    if (!marginColumnMedia.matches || split || documents.size === 0) return 'unavailable';
+    return panelLayout.detailsHidden ? 'strip' : 'shown';
+  }
+
+  function detailsWidth(): number {
+    const state = detailsState();
+    return state === 'shown' ? DETAILS_WIDTH : state === 'strip' ? DETAILS_STRIP_WIDTH : 0;
+  }
 
   // Below the collapse width the rail leaves the layout. Opening it covers the document
   // instead of pushing it, so the 680px measure stays intact.
   function setRailOpen(open: boolean): void {
-    const collapsed = railCollapseMedia.matches;
+    const collapsed = railCollapsed();
     const shown = collapsed && open;
     document.documentElement.classList.toggle('is-rail-open', shown);
     railToggle.setAttribute('aria-expanded', String(shown));
@@ -195,6 +251,8 @@ document.addEventListener('DOMContentLoaded', () => {
         ? t('rail.documentsCount', { count: documents.size })
         : t('rail.documents');
     railEl.toggleAttribute('inert', collapsed && !shown);
+    document.documentElement.classList.toggle('is-rail-hidden', panelLayout.railHidden && !railCollapseMedia.matches);
+    railMiniEl.hidden = !collapsed || shown;
   }
 
   const RAIL_WIDTH_KEY = 'livemark.railWidth';
@@ -207,14 +265,14 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function layoutDockedRail(): void {
-    if (railCollapseMedia.matches) {
+    if (railCollapsed()) {
       document.documentElement.style.removeProperty('--rail-width');
       return;
     }
-    const width = dockedRailWidth(railPreferred, window.innerWidth);
+    const width = dockedRailWidth(railPreferred, window.innerWidth, detailsWidth());
     document.documentElement.style.setProperty('--rail-width', `${width}px`);
     railResize.setAttribute('aria-valuemin', String(RAIL_WIDTH_MIN));
-    railResize.setAttribute('aria-valuemax', String(Math.min(RAIL_WIDTH_MAX, railWidthLimit(window.innerWidth))));
+    railResize.setAttribute('aria-valuemax', String(Math.min(RAIL_WIDTH_MAX, railWidthLimit(window.innerWidth, detailsWidth()))));
     railResize.setAttribute('aria-valuenow', String(width));
   }
 
@@ -225,7 +283,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   railResize.addEventListener('pointerdown', (event) => {
-    if (railCollapseMedia.matches || event.button !== 0) return;
+    if (railCollapsed() || event.button !== 0) return;
     event.preventDefault();
     const originX = event.clientX;
     const originWidth = railEl.getBoundingClientRect().width;
@@ -271,6 +329,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (pane.index !== focusedPaneIndex) return;
       updateScrollSpy();
       workspaceEl.classList.toggle('is-scrolled', pane.scroller.scrollTop > 0);
+      updateCrumb();
     },
     onClosePane: (pane) => setSplit(false, pane.index === 0 ? 1 : 0),
     onDropDocument: (pane, documentId) => showInPane(pane.index, documentId),
@@ -278,7 +337,6 @@ document.addEventListener('DOMContentLoaded', () => {
   };
   const panes = [new DocumentPane(0, paneHost), new DocumentPane(1, paneHost)];
   panesEl.append(panes[0].element, panes[1].element);
-  panes[0].layout.appendChild(marginColumnEl);
 
   const focusedPane = (): DocumentPane => panes[focusedPaneIndex];
   const visiblePanes = (): DocumentPane[] => (split ? panes : [panes[0]]);
@@ -382,14 +440,95 @@ document.addEventListener('DOMContentLoaded', () => {
     updateStatus();
   }
 
-  // The live card belongs to the margin column; when that column cannot be shown it is pinned to the bottom of the rail.
-  function placeLiveCard(): void {
-    const inMargin = marginColumnMedia.matches && !split;
-    if (inMargin && statusEl.parentElement !== marginColumnEl) {
-      marginColumnEl.prepend(statusEl);
-    } else if (!inMargin && statusEl.parentElement !== railEl) {
-      railEl.insertBefore(statusEl, railFooterEl);
+  // Navigation sits in the rail and activity in the right panel by default; the user can move either section.
+  function placeSections(): void {
+    const state = detailsState();
+    const root = document.documentElement;
+    root.classList.toggle('has-details', state === 'shown');
+    root.classList.toggle('has-details-strip', state === 'strip');
+    marginColumnEl.hidden = state !== 'shown';
+    detailsStripEl.hidden = state !== 'strip';
+    root.style.setProperty('--details-offset', `${detailsWidth()}px`);
+
+    const placement = resolvePlacement(panelLayout, state);
+    for (const panel of ['rail', 'details'] as PanelId[]) {
+      for (const section of SECTION_ORDER[panel]) {
+        if (placement[section] === panel && sectionEls[section].parentElement !== slotEls[panel]) {
+          slotEls[panel].appendChild(sectionEls[section]);
+        }
+      }
+      // Keep the panel's own order regardless of the order sections arrived in.
+      for (const section of SECTION_ORDER[panel]) {
+        if (sectionEls[section].parentElement === slotEls[panel]) slotEls[panel].appendChild(sectionEls[section]);
+      }
     }
+    for (const section of MOVABLE_SECTIONS) {
+      const element = sectionEls[section];
+      const shownIn = placement[section];
+      element.classList.toggle('is-parked', shownIn === null);
+      const grip = element.querySelector('.panel-section__grip') as HTMLButtonElement;
+      const name = (element.querySelector('.panel-section__title') as HTMLElement).textContent ?? '';
+      const target = otherPanel(shownIn ?? panelLayout.place[section]);
+      const label = t(target === 'rail' ? 'section.moveToRail' : 'section.moveToDetails', { name });
+      grip.setAttribute('aria-label', label);
+      // With nowhere to move to, the grip keeps its place in the header but cannot be used.
+      grip.disabled = state !== 'shown';
+    }
+    layoutDockedRail();
+  }
+
+  function moveSection(section: MovableSection, panel: PanelId): void {
+    panelLayout.place[section] = panel;
+    if (panel === 'details') panelLayout.detailsHidden = false;
+    else if (panelLayout.railHidden) panelLayout.railHidden = false;
+    savePanelLayout();
+    setPopoverOpen(false);
+    placeSections();
+    setRailOpen(false);
+  }
+
+  function setSectionCollapsed(section: CollapsibleSection, collapsed: boolean): void {
+    panelLayout.collapsed[section] = collapsed;
+    savePanelLayout();
+    applyCollapsedSections();
+    if (section === 'changes' && collapsed) setPopoverOpen(false);
+  }
+
+  function applyCollapsedSections(): void {
+    for (const sectionEl of Array.from(document.querySelectorAll<HTMLElement>('.panel-section[data-section]'))) {
+      const section = sectionEl.dataset.section as CollapsibleSection;
+      const collapsed = panelLayout.collapsed[section] ?? false;
+      sectionEl.classList.toggle('is-collapsed', collapsed);
+      sectionEl.querySelector('.panel-section__toggle')?.setAttribute('aria-expanded', String(!collapsed));
+    }
+  }
+
+  function setRailHidden(hidden: boolean): void {
+    panelLayout.railHidden = hidden;
+    savePanelLayout();
+    setRailOpen(false);
+    layoutDockedRail();
+  }
+
+  function setDetailsHidden(hidden: boolean): void {
+    panelLayout.detailsHidden = hidden;
+    savePanelLayout();
+    setPopoverOpen(false);
+    placeSections();
+  }
+
+  /** Once the title has scrolled away, the title bar names the file and the section being read. */
+  function updateCrumb(): void {
+    const pane = focusedPane();
+    const documentState = pane.documentId ? documents.get(pane.documentId) : null;
+    const show = !split && !!documentState && pane.scroller.scrollTop > CRUMB_SCROLL_THRESHOLD;
+    crumbEl.hidden = !show;
+    if (!show || !documentState) return;
+    crumbNameEl.textContent = basename(documentState.path);
+    const currentId = pane.currentHeadingId();
+    const heading = currentId ? pane.headings().find((candidate) => candidate.id === currentId) : undefined;
+    crumbSectionEl.textContent = heading?.textContent ?? '';
+    crumbEl.classList.toggle('has-section', !!heading);
   }
 
   function updateStatus(): void {
@@ -398,7 +537,7 @@ document.addEventListener('DOMContentLoaded', () => {
       statusTimer = null;
     }
     const documentState = getActiveDocument();
-    statusEl.hidden = !documentState;
+    changesSectionEl.hidden = !documentState;
     byId('watching-count').textContent = tCount('rail.watching', documents.size);
     if (!documentState) {
       setPopoverOpen(false);
@@ -450,12 +589,22 @@ document.addEventListener('DOMContentLoaded', () => {
     statusActionKbd.hidden = action !== 'jump';
     pauseBtn.textContent = t(documentState.paused ? 'status.resume' : 'status.pause');
     pauseBtn.hidden = documentState.missing;
+    changesSectionEl.dataset.state = state;
+    changesSummaryEl.textContent = state === 'missing' ? label : String(documentState.updateCount);
+    detailsStripCountEl.textContent = String(documentState.updateCount);
+    detailsStripEl.dataset.state = state;
+    detailsShowBtn.title = t('details.show');
+    detailsShowBtn.setAttribute('aria-label', t('details.showWithStatus', { status: label }));
 
     reloadLogListEl.replaceChildren();
-    (reloadLogListEl.parentElement as HTMLElement).hidden = documentState.reloads.length === 0;
-    for (const reload of documentState.reloads.slice(0, RECENT_RELOADS)) {
-      const entry = document.createElement('div');
+    reloadLogListEl.hidden = documentState.reloads.length === 0;
+    allReloadsBtn.hidden = documentState.reloads.length === 0;
+    documentState.reloads.slice(0, RECENT_RELOADS).forEach((reload, reloadIndex) => {
+      const entry = document.createElement('button');
+      entry.type = 'button';
       entry.className = 'reload-entry';
+      entry.disabled = !isReloadOnScreen(reload, documentState.blockIndex);
+      entry.addEventListener('click', () => jumpToReload(documentState, reloadIndex));
       const time = document.createElement('span');
       time.className = 'reload-entry__time';
       time.textContent = formatTime(reload.time, false);
@@ -464,7 +613,7 @@ document.addEventListener('DOMContentLoaded', () => {
       text.textContent = reload.text;
       entry.append(time, text);
       reloadLogListEl.appendChild(entry);
-    }
+    });
   }
 
   function renderHistory(): void {
@@ -521,9 +670,9 @@ document.addEventListener('DOMContentLoaded', () => {
     allReloadsBtn.setAttribute('aria-expanded', String(open));
     if (!open) return;
     // Opens beside the live card: to its left in the margin column, to its right when the card sits in the rail.
-    const rect = statusEl.getBoundingClientRect();
+    const rect = changesSectionEl.getBoundingClientRect();
     const popoverWidth = 380;
-    const left = statusEl.parentElement === railEl ? rect.right + 12 : rect.left - popoverWidth - 12;
+    const left = railEl.contains(statusEl) ? rect.right + 12 : rect.left - popoverWidth - 12;
     popoverEl.style.left = `${Math.max(12, Math.min(left, window.innerWidth - popoverWidth - 12))}px`;
     popoverEl.style.top = `${Math.max(12, Math.min(rect.top, window.innerHeight - 480))}px`;
     renderHistory();
@@ -531,19 +680,33 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function updateScrollSpy(): void {
     const currentId = focusedPane().currentHeadingId();
+    let currentText = '';
     for (const item of Array.from(outlineListEl.children) as HTMLElement[]) {
-      item.classList.toggle('is-current', item.dataset.headingId === currentId);
+      const current = item.dataset.headingId === currentId;
+      item.classList.toggle('is-current', current);
+      if (current) {
+        item.setAttribute('aria-current', 'location');
+        currentText = item.textContent ?? '';
+      } else {
+        item.removeAttribute('aria-current');
+      }
     }
+    outlineSummaryEl.textContent = currentText;
   }
 
   function renderMarginColumn(): void {
-    const pane = panes[0];
+    const pane = focusedPane();
     const documentState = pane.documentId ? documents.get(pane.documentId) : null;
-    if (!documentState) return;
+    if (!documentState) {
+      outlineEl.hidden = true;
+      linksOutEl.hidden = true;
+      return;
+    }
 
     outlineListEl.replaceChildren();
     const headings = pane.headings();
     outlineEl.hidden = headings.length === 0;
+    let anyChanged = false;
     for (const heading of headings) {
       const item = document.createElement('button');
       item.type = 'button';
@@ -559,11 +722,14 @@ document.addEventListener('DOMContentLoaded', () => {
         dot.className = 'outline-item__dot';
         dot.title = t('margin.changedSection');
         item.appendChild(dot);
+        anyChanged = true;
       }
       item.addEventListener('click', () => heading.scrollIntoView({ block: 'start', behavior: 'smooth' }));
       outlineListEl.appendChild(item);
     }
+    outlineLegendEl.hidden = !anyChanged;
     updateScrollSpy();
+    updateCrumb();
 
     linksOutListEl.replaceChildren();
     const links = pane.outgoingLinks().slice(0, 8);
@@ -612,8 +778,8 @@ document.addEventListener('DOMContentLoaded', () => {
     tabsEl.replaceChildren();
     const groups = documentGroups();
     const grouped = groups.length > 1;
-    railHeadingEl.hidden = grouped;
-    railHeadingEl.textContent = documents.size > 1 ? t('rail.documentsCount', { count: documents.size }) : t('rail.documents');
+    railHeadingEl.textContent = t('rail.documents');
+    railCountEl.textContent = documents.size > 0 ? String(documents.size) : '';
     const activeId = focusedPane().documentId;
 
     let index = 0;
@@ -739,7 +905,7 @@ document.addEventListener('DOMContentLoaded', () => {
     workspaceEl.dataset.focusedPane = String(focusedPaneIndex);
     workspaceEl.classList.toggle('is-scrolled', !split && panes[0].scroller.scrollTop > 0);
     panes[1].element.hidden = !split;
-    placeLiveCard();
+    placeSections();
     const empty = documents.size === 0;
     emptyStateEl.style.display = empty ? 'block' : 'none';
     panesEl.hidden = empty;
@@ -1288,14 +1454,105 @@ document.addEventListener('DOMContentLoaded', () => {
     setPopoverOpen(false);
     closeTabMenu();
     layoutDockedRail();
+    updateCrumb();
   });
   marginColumnMedia.addEventListener('change', () => {
     setPopoverOpen(false);
-    placeLiveCard();
+    placeSections();
   });
-  railCollapseMedia.addEventListener('change', () => setRailOpen(false));
+  railCollapseMedia.addEventListener('change', () => {
+    setRailOpen(false);
+    layoutDockedRail();
+  });
   railToggle.addEventListener('click', () => {
+    // A rail the user hid on a wide window docks again; on a narrow window it opens over the document.
+    if (panelLayout.railHidden && !railCollapseMedia.matches) {
+      setRailHidden(false);
+      return;
+    }
     setRailOpen(!document.documentElement.classList.contains('is-rail-open'));
+  });
+  byId('rail-hide-btn').addEventListener('click', () => {
+    if (railCollapseMedia.matches) setRailOpen(false);
+    else setRailHidden(true);
+  });
+  byId('details-hide-btn').addEventListener('click', () => setDetailsHidden(true));
+  detailsShowBtn.addEventListener('click', () => setDetailsHidden(false));
+
+  for (const sectionEl of Array.from(document.querySelectorAll<HTMLElement>('.panel-section[data-section]'))) {
+    const section = sectionEl.dataset.section as CollapsibleSection;
+    sectionEl.querySelector('.panel-section__toggle')?.addEventListener('click', () => {
+      setSectionCollapsed(section, !panelLayout.collapsed[section]);
+    });
+  }
+  applyCollapsedSections();
+
+  for (const section of MOVABLE_SECTIONS) {
+    const sectionEl = sectionEls[section];
+    const header = sectionEl.querySelector('.panel-section__header') as HTMLElement;
+    const grip = sectionEl.querySelector('.panel-section__grip') as HTMLButtonElement;
+    grip.addEventListener('click', () => {
+      const current = slotEls.rail.contains(sectionEl) ? 'rail' : 'details';
+      moveSection(section, otherPanel(current));
+      grip.focus();
+    });
+    header.addEventListener('dragstart', (event) => {
+      if (detailsState() !== 'shown' || !event.dataTransfer) {
+        event.preventDefault();
+        return;
+      }
+      draggedSection = section;
+      event.dataTransfer.setData(SECTION_DRAG_TYPE, section);
+      event.dataTransfer.effectAllowed = 'move';
+      const from: PanelId = slotEls.rail.contains(sectionEl) ? 'rail' : 'details';
+      // Defer, so the drag image is taken before the section dims and the other panel opens a drop target.
+      window.setTimeout(() => {
+        sectionEl.classList.add('is-dragging');
+        slotEls[otherPanel(from)].classList.add('is-drop-target');
+      }, 0);
+    });
+    header.addEventListener('dragend', () => {
+      draggedSection = null;
+      sectionEl.classList.remove('is-dragging');
+      for (const slot of Object.values(slotEls)) slot.classList.remove('is-drop-target', 'is-drop-hover');
+    });
+  }
+
+  for (const panel of ['rail', 'details'] as PanelId[]) {
+    const panelEl = panel === 'rail' ? railEl : marginColumnEl;
+    panelEl.addEventListener('dragover', (event) => {
+      if (!draggedSection || !event.dataTransfer?.types.includes(SECTION_DRAG_TYPE)) return;
+      event.preventDefault();
+      event.dataTransfer.dropEffect = 'move';
+      slotEls[panel].classList.add('is-drop-hover');
+    });
+    panelEl.addEventListener('dragleave', (event) => {
+      if (!panelEl.contains(event.relatedTarget as Node | null)) slotEls[panel].classList.remove('is-drop-hover');
+    });
+    panelEl.addEventListener('drop', (event) => {
+      if (!draggedSection) return;
+      event.preventDefault();
+      const section = draggedSection;
+      slotEls[panel].classList.remove('is-drop-hover');
+      moveSection(section, panel);
+    });
+  }
+
+  // While the rail is folded, its footer's app controls stay reachable from the corner bar.
+  function syncUpdateStatus(): void {
+    const shown = !updateBannerEl.hidden;
+    railMiniUpdateBtn.hidden = !shown;
+    railMiniUpdateTextEl.textContent = shown ? updateTextEl.textContent ?? '' : '';
+  }
+  new MutationObserver(syncUpdateStatus).observe(updateBannerEl, { attributes: true, attributeFilter: ['hidden'], childList: true, subtree: true, characterData: true });
+  syncUpdateStatus();
+  railMiniUpdateBtn.addEventListener('click', () => {
+    if (panelLayout.railHidden && !railCollapseMedia.matches) setRailHidden(false);
+    else setRailOpen(true);
+  });
+  railMiniThemeBtn.addEventListener('click', () => {
+    themeToggleInput.checked = !themeToggleInput.checked;
+    themeToggleInput.dispatchEvent(new Event('change'));
   });
   setRailOpen(false);
 
@@ -1342,9 +1599,11 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   themeToggleInput.checked = localStorage.getItem(THEME_KEY) === 'dark';
+  railMiniThemeBtn.setAttribute('aria-pressed', String(themeToggleInput.checked));
   themeToggleInput.addEventListener('change', () => {
     const dark = themeToggleInput.checked;
     applyTheme(dark);
+    railMiniThemeBtn.setAttribute('aria-pressed', String(dark));
     localStorage.setItem(THEME_KEY, dark ? 'dark' : 'light');
   });
 
@@ -1475,6 +1734,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   void livemark.bootstrap().then((state) => {
     byId('app-version').textContent = `v${state.version}`;
+    railMiniVersionEl.textContent = `v${state.version}`;
     for (const snapshot of state.documents) {
       upsertDocument(snapshot, false);
     }

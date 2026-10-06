@@ -12,16 +12,45 @@
     <svg class="rail-toggle__mark" width="12" height="12" viewBox="0 0 15 15" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M6 3.5L10.5 7.5 6 11.5"></path></svg>
   </button>
   <aside id="rail" class="rail" data-string-aria-label="rail.label">
-    <div class="rail__titlebar" data-tauri-drag-region></div>
+    <div class="rail__titlebar" data-tauri-drag-region>
+      <button id="rail-hide-btn" type="button" class="icon-button panel-hide" data-string-title="rail.hide" data-string-aria-label="rail.hide">
+        <svg width="14" height="14" viewBox="0 0 15 15" fill="none" stroke="currentColor" stroke-width="1.2" aria-hidden="true"><rect x="1.5" y="2.5" width="12" height="10" rx="1.5"></rect><path d="M5.5 2.5v10"></path></svg>
+      </button>
+    </div>
     <button id="go-to-file-btn" type="button" class="rail__search">
       <svg width="13" height="13" viewBox="0 0 15 15" fill="none" stroke="currentColor" stroke-width="1.2" aria-hidden="true"><circle cx="6.5" cy="6.5" r="4.5"></circle><path d="M10 10l3.5 3.5"></path></svg>
       <span data-string="rail.goToFile"></span>
       <kbd class="kbd" data-string="shortcut.goToFile"></kbd>
     </button>
-    <div id="rail-heading" class="rail__heading"></div>
-    <div id="document-tabs" class="document-tabs" role="tablist" aria-orientation="vertical" aria-labelledby="rail-heading"></div>
+    <section id="documents-section" class="panel-section" data-section="documents">
+      <div class="panel-section__header">
+        <button type="button" class="panel-section__toggle" aria-expanded="true" aria-controls="document-tabs">
+          <svg class="panel-section__chevron" width="10" height="10" viewBox="0 0 15 15" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M6 3.5L10.5 7.5 6 11.5"></path></svg>
+          <span id="rail-heading" class="panel-section__title"></span>
+        </button>
+        <span id="rail-count" class="panel-section__meta"></span>
+      </div>
+      <div id="document-tabs" class="document-tabs panel-section__body" role="tablist" aria-orientation="vertical" aria-labelledby="rail-heading"></div>
+    </section>
+    <div id="rail-slots" class="panel-slots" data-panel="rail" data-string-data-drop-label="section.dropHere"></div>
 
     <footer class="rail__footer">
+      <div id="app-update-banner" class="app-update" role="status" hidden>
+        <div class="app-update__head">
+          <span class="app-update__dot" aria-hidden="true"></span>
+          <div class="app-update__text">
+            <span id="app-update-text" class="app-update__title"></span>
+            <span id="app-update-detail" class="app-update__detail"></span>
+          </div>
+          <button id="app-update-dismiss" type="button" class="icon-button" data-string-aria-label="update.dismiss">
+            <svg width="11" height="11" viewBox="0 0 15 15" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M4 4l7 7M11 4l-7 7"></path></svg>
+          </button>
+        </div>
+        <div class="app-update__actions">
+          <button id="app-update-action" type="button" class="link-button app-update__primary" hidden></button>
+          <button id="app-update-notes" type="button" class="link-button" data-string="update.releaseNotes" hidden></button>
+        </div>
+      </div>
       <div class="rail__footer-row">
         <span id="watching-count"></span>
         <span class="rail__hint" data-string="rail.closeHint"></span>
@@ -38,7 +67,7 @@
   </aside>
 
   <div id="workspace" class="workspace">
-    <div class="workspace__titlebar" data-tauri-drag-region></div>
+    <div class="workspace__titlebar" data-tauri-drag-region><span id="workspace-crumb" class="workspace__crumb" hidden><span id="workspace-crumb-name" class="workspace__crumb-name"></span><span class="workspace__crumb-sep" aria-hidden="true">›</span><span id="workspace-crumb-section"></span></span></div>
     <div id="panes" class="panes"></div>
 
     <div id="empty-state" class="empty-state">
@@ -50,29 +79,20 @@
   </div>
 
   <aside id="margin-column" class="margin-column" data-string-aria-label="margin.label">
-    <section id="live-status" class="live-status" data-state="idle" aria-live="polite" hidden>
-      <div class="live-status__row">
-        <span class="live-status__dot" aria-hidden="true"></span>
-        <span id="live-status-label" class="live-status__label"></span>
+    <div class="margin-column__titlebar" data-tauri-drag-region>
+      <button id="details-hide-btn" type="button" class="icon-button panel-hide" data-string-title="details.hide" data-string-aria-label="details.hide">
+        <svg width="14" height="14" viewBox="0 0 15 15" fill="none" stroke="currentColor" stroke-width="1.2" aria-hidden="true"><rect x="1.5" y="2.5" width="12" height="10" rx="1.5"></rect><path d="M9.5 2.5v10"></path></svg>
+      </button>
+    </div>
+    <div id="details-slots" class="panel-slots" data-panel="details" data-string-data-drop-label="section.dropHere"></div>
+    <section id="links-out" class="panel-section" data-section="links" hidden>
+      <div class="panel-section__header">
+        <button type="button" class="panel-section__toggle" aria-expanded="true" aria-controls="links-out-list">
+          <svg class="panel-section__chevron" width="10" height="10" viewBox="0 0 15 15" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M6 3.5L10.5 7.5 6 11.5"></path></svg>
+          <span id="links-out-heading" class="panel-section__title" data-string="margin.linksOut"></span>
+        </button>
       </div>
-      <div id="live-status-detail" class="live-status__detail"></div>
-      <div class="live-status__actions">
-        <button id="status-action-btn" type="button" class="link-button" hidden></button>
-        <kbd id="status-action-kbd" class="kbd" hidden data-string="shortcut.nextChange"></kbd>
-        <button id="pause-btn" type="button" class="link-button live-status__pause"></button>
-      </div>
-      <div class="live-status__recent">
-        <div id="reload-log-list" class="reload-log-list"></div>
-        <button id="all-reloads-btn" type="button" class="link-button" aria-expanded="false" aria-controls="history-popover" data-string="status.allReloads"></button>
-      </div>
-    </section>
-    <nav id="outline" class="margin-section" aria-labelledby="outline-heading" hidden>
-      <span id="outline-heading" class="margin-section__heading" data-string="margin.outline"></span>
-      <div id="outline-list" class="outline-list"></div>
-    </nav>
-    <section id="links-out" class="margin-section" aria-labelledby="links-out-heading" hidden>
-      <span id="links-out-heading" class="margin-section__heading" data-string="margin.linksOut"></span>
-      <div id="links-out-list" class="links-out-list"></div>
+      <div id="links-out-list" class="links-out-list panel-section__body"></div>
     </section>
     <dl class="file-facts">
       <dt data-string="facts.path"></dt><dd id="file-path" class="file-path"></dd>
@@ -81,6 +101,64 @@
       <dt data-string="facts.opened"></dt><dd id="fact-opened"></dd>
     </dl>
   </aside>
+
+  <aside id="details-strip" class="details-strip" hidden>
+    <button id="details-show-btn" type="button" class="details-strip__button">
+      <span class="live-dot" aria-hidden="true"></span>
+      <span id="details-strip-count" class="details-strip__count"></span>
+      <span class="details-strip__label" data-string="section.changes"></span>
+    </button>
+  </aside>
+
+  <section id="changes-section" class="panel-section panel-section--movable" data-section="changes" hidden>
+    <div class="panel-section__header" draggable="true">
+      <button type="button" class="panel-section__grip" data-string-title="section.dragHint"><svg width="10" height="12" viewBox="0 0 10 14" fill="currentColor" aria-hidden="true"><circle cx="3" cy="3" r="1.1"></circle><circle cx="7" cy="3" r="1.1"></circle><circle cx="3" cy="7" r="1.1"></circle><circle cx="7" cy="7" r="1.1"></circle><circle cx="3" cy="11" r="1.1"></circle><circle cx="7" cy="11" r="1.1"></circle></svg></button>
+      <button type="button" class="panel-section__toggle" aria-expanded="true" aria-controls="changes-body">
+        <svg class="panel-section__chevron" width="10" height="10" viewBox="0 0 15 15" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M6 3.5L10.5 7.5 6 11.5"></path></svg>
+        <span class="panel-section__title" data-string="section.changes"></span>
+      </button>
+      <span class="panel-section__summary"><span class="live-dot" aria-hidden="true"></span><span id="changes-summary"></span></span>
+      <button id="pause-btn" type="button" class="panel-section__action"></button>
+    </div>
+    <div id="changes-body" class="panel-section__body changes-body">
+      <div id="live-status" class="live-status" data-state="idle" aria-live="polite">
+        <div class="live-status__row">
+          <span class="live-status__dot" aria-hidden="true"></span>
+          <span id="live-status-label" class="live-status__label"></span>
+        </div>
+        <div id="live-status-detail" class="live-status__detail"></div>
+      </div>
+      <div id="reload-log-list" class="reload-log-list"></div>
+      <div class="live-status__actions">
+        <button id="status-action-btn" type="button" class="link-button" hidden></button>
+        <kbd id="status-action-kbd" class="kbd" hidden data-string="shortcut.nextChange"></kbd>
+        <button id="all-reloads-btn" type="button" class="link-button live-status__all" aria-expanded="false" aria-controls="history-popover" data-string="status.allReloads"></button>
+      </div>
+    </div>
+  </section>
+
+  <nav id="outline" class="panel-section panel-section--movable" data-section="outline" aria-labelledby="outline-heading" hidden>
+    <div class="panel-section__header" draggable="true">
+      <button type="button" class="panel-section__grip" data-string-title="section.dragHint"><svg width="10" height="12" viewBox="0 0 10 14" fill="currentColor" aria-hidden="true"><circle cx="3" cy="3" r="1.1"></circle><circle cx="7" cy="3" r="1.1"></circle><circle cx="3" cy="7" r="1.1"></circle><circle cx="7" cy="7" r="1.1"></circle><circle cx="3" cy="11" r="1.1"></circle><circle cx="7" cy="11" r="1.1"></circle></svg></button>
+      <button type="button" class="panel-section__toggle" aria-expanded="true" aria-controls="outline-body">
+        <svg class="panel-section__chevron" width="10" height="10" viewBox="0 0 15 15" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M6 3.5L10.5 7.5 6 11.5"></path></svg>
+        <span id="outline-heading" class="panel-section__title" data-string="margin.outline"></span>
+      </button>
+      <span id="outline-summary" class="panel-section__summary"></span>
+    </div>
+    <div id="outline-body" class="panel-section__body">
+      <div id="outline-list" class="outline-list"></div>
+      <div id="outline-legend" class="outline-legend" hidden><span class="outline-item__dot" aria-hidden="true"></span><span data-string="margin.changedSection"></span></div>
+    </div>
+  </nav>
+
+  <div id="rail-mini" class="rail-mini" hidden>
+    <span id="rail-mini-version" class="rail-mini__version"></span>
+    <button id="rail-mini-update" type="button" class="link-button rail-mini__update" hidden><span class="rail-mini__update-dot" aria-hidden="true"></span><span id="rail-mini-update-text"></span></button>
+    <button id="rail-mini-theme" type="button" class="icon-button rail-mini__theme" data-string-title="rail.themeTitle" data-string-aria-label="rail.themeTitle" aria-pressed="false">
+      <svg width="13" height="13" viewBox="0 0 15 15" fill="none" stroke="currentColor" stroke-width="1.2" aria-hidden="true"><path d="M12.5 9.2A5.5 5.5 0 0 1 5.8 2.5a5.5 5.5 0 1 0 6.7 6.7z"></path></svg>
+    </button>
+  </div>
 
   <div id="history-popover" class="popover" role="dialog" data-string-aria-label="history.label" hidden>
     <div class="popover__header">
@@ -138,17 +216,6 @@
     <button id="toast-view-btn" type="button" class="link-button" data-string="toast.view" hidden></button>
   </div>
 
-  <div id="app-update-banner" class="app-update" role="status" hidden>
-    <div class="app-update__text">
-      <span id="app-update-text" class="app-update__title"></span>
-      <span id="app-update-detail" class="app-update__detail"></span>
-    </div>
-    <button id="app-update-action" type="button" class="link-button" hidden></button>
-    <button id="app-update-notes" type="button" class="link-button" data-string="update.releaseNotes" hidden></button>
-    <button id="app-update-dismiss" type="button" class="icon-button" data-string-aria-label="update.dismiss">
-      <svg width="11" height="11" viewBox="0 0 15 15" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M4 4l7 7M11 4l-7 7"></path></svg>
-    </button>
-  </div>
 
   <script src="renderer/renderer.js"></script>
 </body>
