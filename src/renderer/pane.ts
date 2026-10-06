@@ -81,7 +81,10 @@ export class DocumentPane {
     this.content.id = `content-${index}`;
     this.content.tabIndex = 0;
     this.content.setAttribute('role', 'tabpanel');
-    this.layout.appendChild(this.content);
+    const sheet = document.createElement('div');
+    sheet.className = 'document-sheet';
+    sheet.appendChild(this.content);
+    this.layout.appendChild(sheet);
     this.scroller.appendChild(this.layout);
 
     this.placeholder = document.createElement('div');
