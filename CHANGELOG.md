@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.6.5](https://github.com/rcoenen/LiveMark/compare/v1.6.4...v1.6.5) (2026-10-06)
+
+
+### Bug Fixes
+
+* show the document as a page and split the side panels by task ([107a8c0](https://github.com/rcoenen/LiveMark/commit/107a8c05d77a365d1315cf10b5f50af38e688ece))
+* show the document as a page and split the side panels by task ([3c01981](https://github.com/rcoenen/LiveMark/commit/3c019810892715a716aebb0de7535d765a445104))
+
 ## [1.6.4](https://github.com/rcoenen/LiveMark/compare/v1.6.3...v1.6.4) (2026-10-04)
 
 
