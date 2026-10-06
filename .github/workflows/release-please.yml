@@ -26,7 +26,7 @@ jobs:
     steps:
       - name: Create or update release pull request
         id: release
-        uses: googleapis/release-please-action@v4
+        uses: googleapis/release-please-action@v5
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           config-file: release-please-config.json
@@ -99,7 +99,7 @@ jobs:
           cp dist/LiveMark-* dist/latest.json scripts/install.sh release/
 
       - name: Upload macOS artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: mac-release
           path: release/
@@ -151,7 +151,7 @@ jobs:
           node scripts/prepare-windows-release.mjs x64
 
       - name: Upload Windows artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: windows-release
           path: |
@@ -209,7 +209,7 @@ jobs:
           node scripts/prepare-windows-release.mjs arm64
 
       - name: Upload Windows ARM artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: windows-arm-release
           path: |
@@ -237,7 +237,7 @@ jobs:
           node-version: 24
 
       - name: Download build artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           path: parts
 

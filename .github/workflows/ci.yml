@@ -84,7 +84,7 @@ jobs:
 
       # The real x64 setup, downloadable from this run. This is not a GitHub Release.
       - name: Upload x64 setup
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: LiveMark-x64-setup
           path: src-tauri/target/release/bundle/nsis/*win-x64-setup.exe
@@ -132,7 +132,7 @@ jobs:
 
       # The real arm64 setup, downloadable from this run. This is not a GitHub Release.
       - name: Upload arm64 setup
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: LiveMark-arm64-setup
           path: src-tauri/target/aarch64-pc-windows-msvc/release/bundle/nsis/*win-arm64-setup.exe
