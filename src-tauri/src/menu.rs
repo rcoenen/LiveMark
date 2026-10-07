@@ -82,12 +82,23 @@ pub fn build_menu(app: &App) -> tauri::Result<Menu<Wry>> {
         "Copy as Plain Text",
         "CmdOrCtrl+Shift+C",
     )?;
-    let edit_menu = SubmenuBuilder::new(app, "Edit")
-        .copy()
+    let add_comment = renderer_item(app, "add-comment", "Add Comment", "CmdOrCtrl+Alt+M")?;
+    let undo_comment = renderer_item(app, "undo-comment", "Undo Comment Change", "CmdOrCtrl+Alt+Z")?;
+    let edit_menu = SubmenuBuilder::new(app, "Edit");
+    // Text fields need the standard editing commands on macOS, where shortcuts only work through the menu.
+    #[cfg(target_os = "macos")]
+    let edit_menu = edit_menu.undo().redo().separator().cut();
+    let edit_menu = edit_menu.copy();
+    #[cfg(target_os = "macos")]
+    let edit_menu = edit_menu.paste();
+    let edit_menu = edit_menu
         .item(&copy_plain_text)
         .item(&select_all)
         .separator()
         .item(&find)
+        .separator()
+        .item(&add_comment)
+        .item(&undo_comment)
         .build()?;
 
     let reload = MenuItemBuilder::with_id(MENU_RELOAD, "Reload")

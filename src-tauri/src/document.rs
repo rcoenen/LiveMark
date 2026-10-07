@@ -290,10 +290,71 @@ pub fn load_snapshot(path: &Path) -> Result<DocumentSnapshot, String> {
     })
 }
 
+/// Why a guarded write did not happen.
+#[derive(Debug, PartialEq, Eq)]
+pub enum WriteError {
+    /// The file no longer holds what LiveMark last read; someone else changed it.
+    Conflict,
+    Io(String),
+}
+
+impl std::fmt::Display for WriteError {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            WriteError::Conflict => write!(formatter, "conflict: the file changed on disk"),
+            WriteError::Io(message) => write!(formatter, "{message}"),
+        }
+    }
+}
+
+const BYTE_ORDER_MARK: &[u8] = &[0xef, 0xbb, 0xbf];
+
+/// Replaces a document only while it still holds `expected`, the text LiveMark last read (after any byte
+/// order mark, which is kept). The new bytes go to a temporary file beside the target and are moved over it,
+/// so readers never see a half-written file. A symbolic link stays a link: the file it points to is replaced.
+pub fn write_if_unchanged(path: &Path, expected: &str, content: &str) -> Result<(), WriteError> {
+    let target = fs::canonicalize(path).map_err(|error| WriteError::Io(format!("could not resolve {}: {error}", path.display())))?;
+    let current = fs::read(&target).map_err(|error| WriteError::Io(format!("could not read {}: {error}", target.display())))?;
+    let (bom, text) = match current.strip_prefix(BYTE_ORDER_MARK) {
+        Some(rest) => (BYTE_ORDER_MARK, rest),
+        None => (&[][..], current.as_slice()),
+    };
+    if text != expected.as_bytes() {
+        return Err(WriteError::Conflict);
+    }
+
+    let file_name = target
+        .file_name()
+        .map(|name| name.to_string_lossy().into_owned())
+        .unwrap_or_else(|| "document".to_owned());
+    let unique = std::time::SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_nanos();
+    let temporary = target.with_file_name(format!(".{file_name}.livemark-{}-{unique}.tmp", std::process::id()));
+    let result = (|| -> std::io::Result<()> {
+        use std::io::Write;
+        let mut file = fs::File::create(&temporary)?;
+        file.write_all(bom)?;
+        file.write_all(content.as_bytes())?;
+        file.sync_all()?;
+        if let Ok(metadata) = fs::metadata(&target) {
+            fs::set_permissions(&temporary, metadata.permissions())?;
+        }
+        fs::rename(&temporary, &target)
+    })();
+    if let Err(error) = result {
+        let _ = fs::remove_file(&temporary);
+        return Err(WriteError::Io(format!("could not write {}: {error}", target.display())));
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::{
-        DocumentRegistry, DocumentSnapshot, list_markdown_files, load_snapshot, resolve_document_path,
+        DocumentRegistry, DocumentSnapshot, WriteError, list_markdown_files, load_snapshot, resolve_document_path,
+        write_if_unchanged,
     };
     use std::fs;
     use std::path::{Path, PathBuf};
@@ -508,5 +569,36 @@ mod tests {
         assert!(resolve_document_path(directory.to_string_lossy().as_ref(), &directory).is_err());
         assert!(resolve_document_path(unsupported.to_string_lossy().as_ref(), &directory).is_err());
         fs::remove_dir_all(directory).expect("fixture should be removed");
+    }
+
+    #[test]
+    fn guarded_write_replaces_only_an_unchanged_file_and_keeps_its_byte_order_mark() {
+        let directory = temporary_directory();
+        let path = directory.join("notes.md");
+        fs::write(&path, b"\xef\xbb\xbfHello\r\n").expect("fixture should be written");
+
+        assert_eq!(write_if_unchanged(&path, "Changed\r\n", "x"), Err(WriteError::Conflict));
+        assert_eq!(fs::read(&path).expect("file should exist"), b"\xef\xbb\xbfHello\r\n");
+
+        write_if_unchanged(&path, "Hello\r\n", "Hello\r\n\r\n<!--livemark:comments\r\n{}\r\n-->\r\n").expect("write should succeed");
+        assert_eq!(
+            fs::read(&path).expect("file should exist"),
+            b"\xef\xbb\xbfHello\r\n\r\n<!--livemark:comments\r\n{}\r\n-->\r\n"
+        );
+        let leftovers = fs::read_dir(&directory).expect("directory should be readable").count();
+        assert_eq!(leftovers, 1, "no temporary file may be left behind");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn guarded_write_through_a_symbolic_link_keeps_the_link() {
+        let directory = temporary_directory();
+        let real = directory.join("real.md");
+        let link = directory.join("link.md");
+        fs::write(&real, "A\n").expect("fixture should be written");
+        std::os::unix::fs::symlink(&real, &link).expect("link should be created");
+        write_if_unchanged(&link, "A\n", "B\n").expect("write should succeed");
+        assert!(fs::symlink_metadata(&link).expect("link should exist").file_type().is_symlink());
+        assert_eq!(fs::read_to_string(&real).expect("target should exist"), "B\n");
     }
 }

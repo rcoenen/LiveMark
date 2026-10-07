@@ -57,6 +57,8 @@ export interface LiveMarkBridge {
   openContainingFolder(documentId: string): Promise<void>;
   listSiblingDocuments(): Promise<string[]>;
   exportPdf(documentPath: string): Promise<void>;
+  /** Replaces the file only if it still holds `expectedContent`; rejects with a "conflict" message otherwise. */
+  writeDocument(documentId: string, expectedContent: string, content: string): Promise<DocumentSnapshot>;
 }
 
 export function installLiveMarkBridge(): LiveMarkBridge {
@@ -99,6 +101,8 @@ export function installLiveMarkBridge(): LiveMarkBridge {
     openContainingFolder: (documentId) => invoke<void>('open_containing_folder', { documentId }),
     listSiblingDocuments: () => invoke<string[]>('list_sibling_documents'),
     exportPdf: (documentPath) => invoke<void>('export_pdf', { documentPath }),
+    writeDocument: (documentId, expectedContent, content) =>
+      invoke<DocumentSnapshot>('write_document', { documentId, expectedContent, content }),
   };
 
   window.livemark = bridge;

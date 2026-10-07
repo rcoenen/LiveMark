@@ -17,8 +17,13 @@ import { DETAILS_WIDTH, RAIL_WIDTH_DEFAULT, RAIL_WIDTH_MAX, RAIL_WIDTH_MIN, dock
 import { applyStaticStrings, t, tCount } from './strings';
 import { initUpdates } from './updates';
 import { diffReload, fuzzyScore, indexBlocks, isReloadOnScreen, type BlockIndex, type ReloadEntry } from './reloads';
+import { initComments } from './comments/controller';
+import { loadComments, type CommentState } from './comments/state';
 
 interface OpenDocument extends DocumentSnapshot {
+  /** The document without LiveMark's comment block; this is what is rendered, copied and compared. */
+  body: string;
+  comments: CommentState;
   updateCount: number;
   openedAt: number;
   reloads: ReloadEntry[];
@@ -161,7 +166,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const crumbEl = byId('workspace-crumb');
   const crumbNameEl = byId('workspace-crumb-name');
   const crumbSectionEl = byId('workspace-crumb-section');
-  const sectionEls: Record<MovableSection, HTMLElement> = { changes: changesSectionEl, outline: byId('outline') };
+  const sectionEls: Record<MovableSection, HTMLElement> = { changes: changesSectionEl, outline: byId('outline'), comments: byId('comments-section') };
   const slotEls: Record<PanelId, HTMLElement> = { rail: railSlotsEl, details: detailsSlotsEl };
   const findBarEl = byId('find-bar');
   const findInput = byId<HTMLInputElement>('find-input');
@@ -205,6 +210,7 @@ document.addEventListener('DOMContentLoaded', () => {
   let focusedPaneIndex = 0;
   let toastTimer: number | null = null;
   let toastTarget: string | null = null;
+  let toastAction: (() => void) | null = null;
   let statusTimer: number | null = null;
   let reloadedFlashUntil = 0;
   let paletteEntries: PaletteEntry[] = [];
@@ -347,6 +353,29 @@ document.addEventListener('DOMContentLoaded', () => {
   const paneShowing = (documentId: string): DocumentPane | undefined =>
     visiblePanes().find((pane) => pane.documentId === documentId);
 
+  // Comments live in the file's own comment block; the controller owns their panel and highlights.
+  const comments = initComments({
+    livemark,
+    activeDocument: () => getActiveDocument(),
+    documentFor: (pane) => (pane.documentId ? documents.get(pane.documentId) ?? null : null),
+    visiblePanes: () => visiblePanes().filter((pane) => pane.documentId !== null),
+    showToast: (title, detail, duration, action) => showToast(title, detail, duration, null, action),
+    revealSection: () => {
+      if (panelLayout.collapsed.comments) setSectionCollapsed('comments', false);
+      const shownIn = resolvePlacement(panelLayout, detailsState()).comments;
+      if (shownIn === null) setDetailsHidden(false);
+      else if (shownIn === 'rail' && railCollapsed()) setRailOpen(true);
+    },
+    applyWrite: (documentId, snapshot) => {
+      const documentState = documents.get(documentId);
+      if (!documentState) return;
+      documentState.content = snapshot.content;
+      documentState.lastModified = snapshot.lastModified;
+      documentState.comments = loadComments(snapshot.content, documentState.comments);
+      refreshChrome();
+    },
+  });
+
   // Rail order: grouped by folder when documents come from more than one, otherwise the order they were opened in.
   function documentGroups(): Array<{ folder: string; documents: OpenDocument[] }> {
     const groups = new Map<string, OpenDocument[]>();
@@ -357,16 +386,28 @@ document.addEventListener('DOMContentLoaded', () => {
     return Array.from(groups, ([folder, grouped]) => ({ folder, documents: grouped }));
   }
 
+  /** What a pane shows: the document body, never the comment block. */
+  const paneDocument = (documentState: OpenDocument) => ({ id: documentState.id, path: documentState.path, content: documentState.body });
+
   const visualOrder = (): string[] => documentGroups().flatMap((group) => group.documents.map((entry) => entry.id));
 
-  function showToast(title: string, detail: string, duration: number, viewDocumentId: string | null): void {
+  /** A short notice; it offers View for a reloaded document, or another action such as Undo. */
+  function showToast(
+    title: string,
+    detail: string,
+    duration: number,
+    viewDocumentId: string | null,
+    action?: { label: string; run: () => void }
+  ): void {
     if (toastTimer !== null) {
       window.clearTimeout(toastTimer);
     }
     toastTitleEl.textContent = title;
     toastDetailEl.textContent = detail;
     toastTarget = viewDocumentId;
-    toastViewBtn.hidden = viewDocumentId === null;
+    toastAction = action?.run ?? null;
+    toastViewBtn.textContent = action?.label ?? t('toast.view');
+    toastViewBtn.hidden = viewDocumentId === null && !action;
     toastEl.classList.add('show');
     toastTimer = window.setTimeout(() => {
       toastEl.classList.remove('show');
@@ -744,7 +785,7 @@ document.addEventListener('DOMContentLoaded', () => {
       linksOutListEl.appendChild(item);
     }
 
-    const words = documentState.content.trim().split(/\s+/).filter(Boolean).length;
+    const words = documentState.body.trim().split(/\s+/).filter(Boolean).length;
     byId('fact-opened').textContent = formatTime(documentState.openedAt, false);
     byId('last-updated').textContent = formatModified(documentState.lastModified);
     byId('fact-size').textContent = tCount('facts.words', words);
@@ -913,6 +954,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderTabs();
     renderMarginColumn();
     renderHistory();
+    comments.render();
   }
 
   function focusPane(paneIndex: number): void {
@@ -929,7 +971,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!documentState) return;
     const pane = panes[split ? paneIndex : 0];
     if (pane.documentId !== documentId) {
-      pane.show(documentState);
+      pane.show(paneDocument(documentState));
       applyMarks(pane);
     }
     focusedPaneIndex = pane.index;
@@ -965,7 +1007,7 @@ document.addEventListener('DOMContentLoaded', () => {
       split = true;
       const other = visualOrder().find((documentId) => documentId !== panes[0].documentId);
       if (other) {
-        panes[1].show(documents.get(other) as OpenDocument);
+        panes[1].show(paneDocument(documents.get(other) as OpenDocument));
         applyMarks(panes[1]);
       }
     } else {
@@ -974,7 +1016,7 @@ document.addEventListener('DOMContentLoaded', () => {
       focusedPaneIndex = 0;
       panes[1].clear();
       if (keptId && panes[0].documentId !== keptId) {
-        panes[0].show(documents.get(keptId) as OpenDocument);
+        panes[0].show(paneDocument(documents.get(keptId) as OpenDocument));
         applyMarks(panes[0]);
       }
       if (keptId) void livemark.activateDocument(keptId);
@@ -1009,12 +1051,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // One reload: record what changed, re-render the panes showing the document, and confirm it quietly.
   function applyUpdate(documentState: OpenDocument, snapshot: DocumentSnapshot): void {
+    const comments = loadComments(snapshot.content, documentState.comments);
+    const bodyChanged = comments.parse.body !== documentState.body;
     documentState.path = snapshot.path;
     documentState.content = snapshot.content;
     documentState.lastModified = snapshot.lastModified;
+    documentState.comments = comments;
+    documentState.body = comments.parse.body;
+    // Only the comment block changed: the document itself was not reloaded.
+    if (!bodyChanged) {
+      refreshChrome();
+      return;
+    }
     documentState.updateCount++;
 
-    const container = renderMarkdown(snapshot.content);
+    const container = renderMarkdown(documentState.body);
     const reload = diffReload(documentState.blockIndex, container, Date.now());
     documentState.blockIndex = indexBlocks(container);
     documentState.reloads.unshift(reload);
@@ -1024,8 +1075,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const showing = visiblePanes().filter((pane) => pane.documentId === documentState.id);
     showing.forEach((pane, paneIndex) => {
-      pane.show(documentState, {
-        container: paneIndex === 0 ? container : renderMarkdown(snapshot.content),
+      pane.show(paneDocument(documentState), {
+        container: paneIndex === 0 ? container : renderMarkdown(documentState.body),
         keepReadingPosition: true,
       });
       applyMarks(pane);
@@ -1061,12 +1112,15 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
+    const comments = loadComments(snapshot.content);
     documents.set(snapshot.id, {
       ...snapshot,
+      body: comments.parse.body,
+      comments,
       updateCount: 0,
       openedAt: Date.now(),
       reloads: [],
-      blockIndex: indexBlocks(renderMarkdown(snapshot.content)),
+      blockIndex: indexBlocks(renderMarkdown(comments.parse.body)),
       changedSections: new Set(),
       markedReload: 0,
       marksUntil: 0,
@@ -1100,8 +1154,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const previous = documents.get(fromId);
     const relocated = documents.get(toId);
     if (!previous || !relocated) return;
-    const contentChanged = previous.content !== relocated.content;
-    const reload = diffReload(previous.blockIndex, renderMarkdown(relocated.content), Date.now());
+    const contentChanged = previous.body !== relocated.body;
+    const reload = diffReload(previous.blockIndex, renderMarkdown(relocated.body), Date.now());
     Object.assign(relocated, {
       updateCount: previous.updateCount + (contentChanged ? 1 : 0),
       openedAt: previous.openedAt,
@@ -1137,7 +1191,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const candidates = [...remaining.slice(Math.min(closingIndex, Math.max(remaining.length - 1, 0))), ...remaining];
       const replacement = candidates.find((documentId) => !shownElsewhere.has(documentId));
       if (replacement) {
-        pane.show(documents.get(replacement) as OpenDocument);
+        pane.show(paneDocument(documents.get(replacement) as OpenDocument));
         applyMarks(pane);
       } else {
         pane.clear();
@@ -1367,6 +1421,10 @@ document.addEventListener('DOMContentLoaded', () => {
       setPaused(documentState, !documentState.paused);
     } else if (command === 'export-pdf') {
       void exportFocusedDocument();
+    } else if (command === 'add-comment') {
+      comments.commentOnSelection();
+    } else if (command === 'undo-comment') {
+      comments.undo();
     } else if (command === 'check-updates') {
       updates.checkManually();
     } else if (command === 'about') {
@@ -1405,7 +1463,10 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!event.metaKey && !event.ctrlKey) return;
     const key = event.key.toLowerCase();
     let command: string | undefined;
-    if (key === '+') {
+    // Option changes the typed character on macOS, so these two are matched by physical key.
+    if (event.altKey && (event.code === 'KeyM' || event.code === 'KeyZ')) {
+      command = event.code === 'KeyM' ? 'add-comment' : 'undo-comment';
+    } else if (key === '+') {
       command = 'text-zoom-in';
     } else if (event.shiftKey) {
       command = key === 'n' ? 'next-change' : key === 'p' ? 'toggle-pause' : key === 'c' ? 'copy-plain-text' : undefined;
@@ -1571,6 +1632,13 @@ document.addEventListener('DOMContentLoaded', () => {
     else jumpToReload(documentState, 0);
   });
   toastViewBtn.addEventListener('click', () => {
+    if (toastAction) {
+      const run = toastAction;
+      toastAction = null;
+      toastEl.classList.remove('show');
+      run();
+      return;
+    }
     const documentState = toastTarget ? documents.get(toastTarget) : null;
     if (!documentState) return;
     activateDocument(documentState.id);
@@ -1702,11 +1770,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     if (event.target instanceof HTMLInputElement) return;
     const documentState = getActiveDocument();
-    if (!documentState?.content) return;
+    if (!documentState?.body) return;
     event.preventDefault();
 
     const { selectionHtml, coversDocument } = copyTarget();
-    event.clipboardData?.setData('text/plain', markdownForCopy(documentState.content, selectionHtml, coversDocument));
+    event.clipboardData?.setData('text/plain', markdownForCopy(documentState.body, selectionHtml, coversDocument));
     showToast(t('toast.copied'), '', 1000, null);
   });
 

@@ -600,6 +600,37 @@ fn relocate_document_to(
     activate_document_by_id(app, &new_id)
 }
 
+/// Writes a whole document for the comment footer, but only while the file still holds what the renderer
+/// last read. The new snapshot is recorded first, so the watcher does not report LiveMark's own write.
+#[tauri::command]
+fn write_document(
+    app: AppHandle<Wry>,
+    document_id: String,
+    expected_content: String,
+    content: String,
+) -> Result<DocumentSnapshot, String> {
+    let state = app.state::<RuntimeState>();
+    let path = {
+        let mut data = state.data.lock().map_err(|_| lock_error("runtime data"))?;
+        let path = data
+            .registry
+            .path(&document_id)
+            .ok_or_else(|| "unknown document".to_owned())?;
+        // A refresh that already read the old file must not overwrite the snapshot recorded below.
+        if let Some(generation) = data.refresh_generations.get_mut(&document_id) {
+            *generation += 1;
+        }
+        path
+    };
+    document::write_if_unchanged(&path, &expected_content, &content).map_err(|error| error.to_string())?;
+    let snapshot = load_snapshot(&path)?;
+    let snapshot = DocumentSnapshot { id: document_id.clone(), ..snapshot };
+    if let Ok(mut data) = state.data.lock() {
+        data.registry.update(snapshot.clone());
+    }
+    Ok(snapshot)
+}
+
 #[tauri::command]
 fn list_sibling_documents(state: State<'_, RuntimeState>) -> Result<Vec<String>, String> {
     let directories = {
@@ -1010,6 +1041,7 @@ pub fn run() {
             locate_document,
             open_containing_folder,
             list_sibling_documents,
+            write_document,
             export_pdf
         ])
         .on_menu_event(handle_menu_event)

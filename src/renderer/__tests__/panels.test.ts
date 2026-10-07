@@ -4,7 +4,7 @@ import { defaultLayout, otherPanel, parseLayout, resolvePlacement } from '../pan
 describe('parseLayout', () => {
   it('starts with navigation in the rail and changes in the right panel', () => {
     expect(parseLayout(null)).toEqual(defaultLayout());
-    expect(defaultLayout().place).toEqual({ changes: 'details', outline: 'rail' });
+    expect(defaultLayout().place).toEqual({ changes: 'details', outline: 'rail', comments: 'details' });
   });
 
   it('keeps recognised values and drops the rest', () => {
@@ -14,8 +14,8 @@ describe('parseLayout', () => {
       railHidden: true,
       detailsHidden: 1,
     }));
-    expect(layout.place).toEqual({ changes: 'rail', outline: 'rail' });
-    expect(layout.collapsed).toEqual({ documents: false, changes: false, outline: true, links: false });
+    expect(layout.place).toEqual({ changes: 'rail', outline: 'rail', comments: 'details' });
+    expect(layout.collapsed).toEqual({ documents: false, changes: false, outline: true, links: false, comments: false });
     expect(layout.railHidden).toBe(true);
     expect(layout.detailsHidden).toBe(false);
   });
@@ -28,22 +28,22 @@ describe('parseLayout', () => {
 
 describe('resolvePlacement', () => {
   it('shows each section where it was placed while the right panel is shown', () => {
-    expect(resolvePlacement(defaultLayout(), 'shown')).toEqual({ changes: 'details', outline: 'rail' });
+    expect(resolvePlacement(defaultLayout(), 'shown')).toEqual({ changes: 'details', outline: 'rail', comments: 'details' });
   });
 
   it('moves right-panel sections into the rail while the right panel cannot be shown', () => {
-    expect(resolvePlacement(defaultLayout(), 'unavailable')).toEqual({ changes: 'rail', outline: 'rail' });
+    expect(resolvePlacement(defaultLayout(), 'unavailable')).toEqual({ changes: 'rail', outline: 'rail', comments: 'rail' });
   });
 
   it('keeps right-panel sections out of sight while the user has folded that panel', () => {
-    expect(resolvePlacement(defaultLayout(), 'strip')).toEqual({ changes: null, outline: 'rail' });
+    expect(resolvePlacement(defaultLayout(), 'strip')).toEqual({ changes: null, outline: 'rail', comments: null });
   });
 
   it('never moves a rail section', () => {
     const layout = defaultLayout();
     layout.place.changes = 'rail';
     layout.place.outline = 'details';
-    expect(resolvePlacement(layout, 'strip')).toEqual({ changes: 'rail', outline: null });
+    expect(resolvePlacement(layout, 'strip')).toEqual({ changes: 'rail', outline: null, comments: null });
   });
 });
 

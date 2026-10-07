@@ -21,6 +21,60 @@ const md = markdownit({
   },
 });
 
+/**
+ * Paragraphs and headings carry the source range they came from, so a selection in the rendered page can be
+ * mapped back to the Markdown. The attribute name has a per-session suffix, so markup inside a document cannot
+ * pose as one of these ranges.
+ */
+export const SOURCE_ATTR = `data-lm-src-${Math.random().toString(36).slice(2, 10)}`;
+
+interface RenderEnv {
+  lineStarts?: number[];
+  content?: string;
+}
+
+/** `start:end` UTF-16 offsets of a block's source lines, without the line ending after the last one. */
+function sourceRangeOf(map: [number, number] | null, env: RenderEnv): string | null {
+  const { lineStarts, content } = env;
+  if (!map || !lineStarts || content === undefined) return null;
+  const start = lineStarts[map[0]];
+  if (start === undefined) return null;
+  let end = map[1] < lineStarts.length ? lineStarts[map[1]] : content.length;
+  while (end > start && (content[end - 1] === '\n' || content[end - 1] === '\r')) end--;
+  return `${start}:${end}`;
+}
+
+md.renderer.rules.paragraph_open = (tokens, idx, options, env, self) => {
+  const token = tokens[idx];
+  const range = sourceRangeOf(token.map, env as RenderEnv);
+  // A tight list hides its paragraphs; a span keeps the source range without changing the layout.
+  if ((token as unknown as { hidden?: boolean }).hidden) return range ? `<span ${SOURCE_ATTR}="${range}">` : '<span>';
+  if (range) token.attrSet(SOURCE_ATTR, range);
+  return self.renderToken(tokens, idx, options);
+};
+md.renderer.rules.paragraph_close = (tokens, idx, options, _env, self) => {
+  if ((tokens[idx] as unknown as { hidden?: boolean }).hidden) return '</span>';
+  return self.renderToken(tokens, idx, options);
+};
+md.renderer.rules.heading_open = (tokens, idx, options, env, self) => {
+  const range = sourceRangeOf(tokens[idx].map, env as RenderEnv);
+  if (range) tokens[idx].attrSet(SOURCE_ATTR, range);
+  return self.renderToken(tokens, idx, options);
+};
+
+function lineStartsOf(content: string): number[] {
+  const starts = [0];
+  for (let i = 0; i < content.length; i++) if (content[i] === '\n') starts.push(i + 1);
+  return starts;
+}
+
+/** Renders one block's own source without source ranges, for checking a mapping against the real parser. */
+export function renderFragment(source: string): HTMLElement {
+  const container = document.createElement('div');
+  container.innerHTML = sanitizeHtml(md.render(source, {}));
+  return container;
+}
+
 // Documents are untrusted: nothing that scripts, restyles, frames or submits may reach the app's DOM.
 const SANITIZE_OPTIONS = {
   FORBID_TAGS: ['style', 'form', 'iframe', 'frame', 'object', 'embed', 'meta', 'base', 'link', 'dialog'],
@@ -37,6 +91,11 @@ DOMPurify.addHook('afterSanitizeAttributes', (node) => {
   node.setAttribute('src', IMAGE_PLACEHOLDER);
 });
 
+/** Block-level parse with the renderer's own configuration, for syntax-aware source checks. */
+export function parseBlocks(content: string): ReturnType<typeof md.parse> {
+  return md.parse(content, {});
+}
+
 export function slugify(text: string): string {
   return text.trim().toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '-').replace(/^-+|-+$/g, '') || 'section';
 }
@@ -48,7 +107,8 @@ export function sanitizeHtml(html: string): string {
 /** Renders Markdown to a detached, sanitised container whose headings all carry unique ids. */
 export function renderMarkdown(content: string): HTMLElement {
   const container = document.createElement('div');
-  container.innerHTML = sanitizeHtml(md.render(content));
+  const env: RenderEnv = { lineStarts: lineStartsOf(content), content };
+  container.innerHTML = sanitizeHtml(md.render(content, env));
   const usedIds = new Set<string>();
   for (const heading of Array.from(container.querySelectorAll('h1, h2, h3, h4, h5, h6'))) {
     const base = heading.id || slugify(heading.textContent ?? '');
@@ -106,7 +166,8 @@ function balanceColumns(table: HTMLTableElement): void {
 
 // Compact content fingerprint (cyrb53) so block identity does not mean keeping every block's HTML around twice.
 export function blockKey(element: Element): string {
-  const text = element.outerHTML;
+  // Source ranges move whenever text above them changes; they are not part of a block's identity.
+  const text = element.outerHTML.split(` ${SOURCE_ATTR}="`).map((part, index) => (index === 0 ? part : part.replace(/^[^"]*"/, ''))).join('');
   let h1 = 0xdeadbeef;
   let h2 = 0x41c6ce57;
   for (let i = 0; i < text.length; i++) {

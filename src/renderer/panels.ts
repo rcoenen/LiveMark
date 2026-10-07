@@ -1,7 +1,7 @@
 /** Where the movable sections live, which sections are collapsed, and which side panels the user hid. */
 export type PanelId = 'rail' | 'details';
-export type MovableSection = 'changes' | 'outline';
-export type CollapsibleSection = 'documents' | 'changes' | 'outline' | 'links';
+export type MovableSection = 'changes' | 'outline' | 'comments';
+export type CollapsibleSection = 'documents' | 'changes' | 'outline' | 'links' | 'comments';
 /** `strip`: the user folded the right panel. `unavailable`: the window is too narrow, split, or empty. */
 export type DetailsState = 'shown' | 'strip' | 'unavailable';
 
@@ -12,18 +12,18 @@ export interface PanelLayout {
   detailsHidden: boolean;
 }
 
-export const MOVABLE_SECTIONS: MovableSection[] = ['changes', 'outline'];
+export const MOVABLE_SECTIONS: MovableSection[] = ['changes', 'comments', 'outline'];
 
 /** Top-to-bottom order of the movable sections inside each panel. */
 export const SECTION_ORDER: Record<PanelId, MovableSection[]> = {
-  rail: ['outline', 'changes'],
-  details: ['changes', 'outline'],
+  rail: ['outline', 'changes', 'comments'],
+  details: ['changes', 'comments', 'outline'],
 };
 
 export function defaultLayout(): PanelLayout {
   return {
-    place: { changes: 'details', outline: 'rail' },
-    collapsed: { documents: false, changes: false, outline: false, links: false },
+    place: { changes: 'details', outline: 'rail', comments: 'details' },
+    collapsed: { documents: false, changes: false, outline: false, links: false, comments: false },
     railHidden: false,
     detailsHidden: false,
   };

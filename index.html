@@ -137,6 +137,36 @@
     </div>
   </section>
 
+  <section id="comments-section" class="panel-section panel-section--movable" data-section="comments" hidden>
+    <div class="panel-section__header" draggable="true">
+      <button type="button" class="panel-section__grip" data-string-title="section.dragHint"><svg width="10" height="12" viewBox="0 0 10 14" fill="currentColor" aria-hidden="true"><circle cx="3" cy="3" r="1.1"></circle><circle cx="7" cy="3" r="1.1"></circle><circle cx="3" cy="7" r="1.1"></circle><circle cx="7" cy="7" r="1.1"></circle><circle cx="3" cy="11" r="1.1"></circle><circle cx="7" cy="11" r="1.1"></circle></svg></button>
+      <button type="button" class="panel-section__toggle" aria-expanded="true" aria-controls="comments-body">
+        <svg class="panel-section__chevron" width="10" height="10" viewBox="0 0 15 15" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M6 3.5L10.5 7.5 6 11.5"></path></svg>
+        <span class="panel-section__title" data-string="comments.title"></span>
+      </button>
+      <span id="comments-summary" class="panel-section__meta comments-count"></span>
+    </div>
+    <div id="comments-body" class="panel-section__body comments-body">
+      <p id="comments-notice" class="comments-notice" role="status" hidden></p>
+      <div id="comments-filter" class="comments-filter" role="radiogroup" data-string-aria-label="comments.filterLabel"></div>
+      <form id="comments-composer" class="comment-composer" hidden>
+        <blockquote id="comments-composer-quote" class="comment-quote"></blockquote>
+        <label id="comments-author-row" class="comment-composer__author" hidden>
+          <span data-string="comments.yourName"></span>
+          <input id="comments-author" type="text" autocomplete="name" spellcheck="false" maxlength="80">
+        </label>
+        <textarea id="comments-composer-input" rows="3" data-string-placeholder="comments.placeholder" data-string-aria-label="comments.placeholder"></textarea>
+        <div class="comment-composer__actions">
+          <span class="comment-composer__hint" data-string="comments.sendHint"></span>
+          <button type="button" id="comments-composer-cancel" class="link-button" data-string="comments.cancel"></button>
+          <button type="submit" id="comments-composer-submit" class="comment-button" data-string="comments.submit"></button>
+        </div>
+      </form>
+      <div id="comments-list" class="comments-list"></div>
+      <p id="comments-empty" class="comments-empty"></p>
+    </div>
+  </section>
+
   <nav id="outline" class="panel-section panel-section--movable" data-section="outline" aria-labelledby="outline-heading" hidden>
     <div class="panel-section__header" draggable="true">
       <button type="button" class="panel-section__grip" data-string-title="section.dragHint"><svg width="10" height="12" viewBox="0 0 10 14" fill="currentColor" aria-hidden="true"><circle cx="3" cy="3" r="1.1"></circle><circle cx="7" cy="3" r="1.1"></circle><circle cx="3" cy="7" r="1.1"></circle><circle cx="7" cy="7" r="1.1"></circle><circle cx="3" cy="11" r="1.1"></circle><circle cx="7" cy="11" r="1.1"></circle></svg></button>
@@ -151,6 +181,14 @@
       <div id="outline-legend" class="outline-legend" hidden><span class="outline-item__dot" aria-hidden="true"></span><span data-string="margin.changedSection"></span></div>
     </div>
   </nav>
+
+  <button id="comment-add-btn" type="button" class="comment-add" hidden>
+    <svg width="12" height="12" viewBox="0 0 15 15" fill="none" stroke="currentColor" stroke-width="1.3" aria-hidden="true"><path d="M2.5 3.5h10v6.5h-5.5l-3 2.5v-2.5h-1.5z"></path></svg>
+    <span data-string="comments.add"></span>
+    <kbd class="kbd" data-string="shortcut.comment"></kbd>
+  </button>
+
+  <div id="comment-chooser" class="tab-menu comment-chooser" role="menu" data-string-aria-label="comments.choose" hidden></div>
 
   <div id="rail-mini" class="rail-mini" hidden>
     <span id="rail-mini-version" class="rail-mini__version"></span>
