@@ -1,31 +1,58 @@
 name: Experimental release (macOS)
 
-# Builds a Mac-only prerelease from a tag such as v1.7.0-experimental.1. It never becomes the
-# latest release, so the in-app updater, the Homebrew cask and the download badges stay on stable.
+# Builds a Mac-only prerelease when a branch other than main carries an experimental version in
+# package.json (such as 1.7.0-experimental.1) that has no release yet. The workflow tags the commit it
+# built. The prerelease is never the latest release, so the in-app updater, the Homebrew cask and the
+# download badges stay on stable.
 on:
   push:
-    tags:
-      - "v*-experimental*"
+    branches-ignore:
+      - main
+      - download-badges
+      - "release-please--**"
+  workflow_dispatch:
 
 permissions:
   contents: write
 
 jobs:
-  build-macos:
-    runs-on: macos-15
-    env:
-      RELEASE_TAG: ${{ github.ref_name }}
+  check:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.version.outputs.tag }}
+      build: ${{ steps.version.outputs.build }}
     steps:
-      - name: Check out tag
+      - name: Check out
         uses: actions/checkout@v6
 
-      - name: Check the tag matches the app version
+      - name: Decide whether this commit is a new experimental release
+        id: version
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           VERSION="$(node -p "require('./package.json').version")"
-          if [ "v${VERSION}" != "${RELEASE_TAG}" ]; then
-            echo "Tag ${RELEASE_TAG} does not match package.json version ${VERSION}" >&2
-            exit 1
+          TAG="v${VERSION}"
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          case "$VERSION" in
+            *-experimental*) ;;
+            *) echo "build=false" >> "$GITHUB_OUTPUT"; echo "${VERSION} is not experimental"; exit 0 ;;
+          esac
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "build=false" >> "$GITHUB_OUTPUT"
+            echo "${TAG} is already released"
+          else
+            echo "build=true" >> "$GITHUB_OUTPUT"
           fi
+
+  build-macos:
+    needs: check
+    if: needs.check.outputs.build == 'true'
+    runs-on: macos-15
+    env:
+      RELEASE_TAG: ${{ needs.check.outputs.tag }}
+    steps:
+      - name: Check out
+        uses: actions/checkout@v6
 
       - name: Set up Node.js
         uses: actions/setup-node@v6
@@ -83,7 +110,7 @@ jobs:
           NOTES
           sed -i '' 's/^          //' /tmp/notes.md
           if ! gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
-            gh release create "$RELEASE_TAG" --prerelease --latest=false --verify-tag \
+            gh release create "$RELEASE_TAG" --target "$GITHUB_SHA" --prerelease --latest=false \
               --title "LiveMark ${VERSION} (experimental, Mac)" --notes-file /tmp/notes.md
           fi
           gh release upload "$RELEASE_TAG" "$DMG" dist/SHA256SUMS-experimental.txt --clobber
